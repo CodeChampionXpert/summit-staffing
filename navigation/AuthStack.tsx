@@ -1,17 +1,18 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
+import { Colors } from '../constants/theme.js';
 import { LoginScreen } from '../screens/auth/LoginScreen.js';
 import { RegisterScreen } from '../screens/auth/RegisterScreen.js';
 import { ForgotPasswordScreen } from '../screens/auth/ForgotPasswordScreen.js';
 import { VerificationScreen } from '../screens/auth/VerificationScreen.js';
 
 const headerStyle = {
-  headerStyle: { backgroundColor: '#06B6D4' },
-  headerTintColor: '#FFFFFF',
+  headerStyle: { backgroundColor: Colors.primary },
+  headerTintColor: Colors.text.white,
   headerTitleStyle: { fontWeight: '700' as const, fontSize: 18 },
   headerShadowVisible: false,
-  contentStyle: { backgroundColor: '#F8FAFC' },
+  contentStyle: { backgroundColor: Colors.background },
 };
 
 export type AuthStackParamList = {

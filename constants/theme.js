@@ -1,9 +1,10 @@
 /**
  * Summit Staffing – shared theme for consistent UI/UX
  * Used by components and screens for colors, spacing, typography, radius.
+ * Light and dark themes so web and mobile look the same.
  */
 
-export const Colors = {
+export const ColorsLight = {
   primary: '#06B6D4',
   primaryDark: '#0891B2',
   primaryLight: '#22D3EE',
@@ -26,6 +27,33 @@ export const Colors = {
     info: '#06B6D4',
   },
 };
+
+export const ColorsDark = {
+  primary: '#22D3EE',
+  primaryDark: '#06B6D4',
+  primaryLight: '#67E8F9',
+  background: '#0F172A',
+  surface: '#1E293B',
+  surfaceSecondary: '#334155',
+  border: '#475569',
+  borderLight: '#334155',
+  text: {
+    primary: '#F8FAFC',
+    secondary: '#CBD5E1',
+    muted: '#94A3B8',
+    white: '#FFFFFF',
+    inverse: '#0F172A',
+  },
+  status: {
+    success: '#10B981',
+    error: '#EF4444',
+    warning: '#F59E0B',
+    info: '#22D3EE',
+  },
+};
+
+/** @deprecated Use useTheme() or ColorsLight/ColorsDark – kept for backward compat */
+export const Colors = ColorsDark;
 
 export const Spacing = {
   xs: 4,

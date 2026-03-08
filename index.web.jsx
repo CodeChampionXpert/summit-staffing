@@ -9,6 +9,6 @@ const root = document.getElementById('root');
 if (root) {
   root.style.minHeight = '100vh';
   root.style.width = '100%';
-  root.style.backgroundColor = '#F8FAFC';
+  root.style.backgroundColor = '#0F172A';
   createRoot(root).render(<App />);
 }
