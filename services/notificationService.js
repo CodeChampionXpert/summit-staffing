@@ -6,6 +6,17 @@ const pool = require('../config/database');
 
 const sendPushNotification = async (userId, title, body, data = {}) => {
   try {
+    // Always create an in-app notification record
+    await pool.query(
+      `INSERT INTO notifications (user_id, title, body, type, data)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [userId, title, body, data.type || 'general', JSON.stringify(data)]
+    );
+  } catch (dbErr) {
+    console.error('Failed to save in-app notification:', dbErr.message);
+  }
+
+  try {
     const serverKey = process.env.FIREBASE_SERVER_KEY;
     if (!serverKey) {
       return;

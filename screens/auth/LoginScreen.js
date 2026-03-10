@@ -73,11 +73,8 @@ export function LoginScreen({ navigation }) {
         contentContainerStyle={{ flexGrow: 1, padding: Spacing.lg, paddingTop: Spacing.xxl, justifyContent: 'center' }}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={{ fontSize: Typography.fontSize.xxl, fontWeight: Typography.fontWeight.bold, color: Colors.text.primary, marginBottom: Spacing.xs }}>
+        <Text style={{ fontSize: Typography.fontSize.xxl, fontWeight: Typography.fontWeight.bold, color: Colors.text.primary, marginBottom: Spacing.xl }}>
           Sign in
-        </Text>
-        <Text style={{ fontSize: Typography.fontSize.base, color: Colors.text.secondary, marginBottom: Spacing.xl }}>
-          Summit Staffing – NDIS marketplace
         </Text>
 
         <Text style={{ fontSize: Typography.fontSize.sm, fontWeight: Typography.fontWeight.medium, color: Colors.text.primary, marginBottom: Spacing.sm }}>

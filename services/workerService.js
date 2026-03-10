@@ -68,6 +68,38 @@ export const uploadDocument = async (
   );
 };
 
+/**
+ * Upload multiple documents at once. documentTypes must match order of files
+ * (e.g. ['ndis_screening', 'wwcc', 'first_aid'] for 3 files).
+ * Optional: issue_dates, expiry_dates as arrays of ISO date strings.
+ */
+export const uploadDocumentsBulk = async (
+  workerId,
+  files,
+  { documentTypes, issue_dates, expiry_dates } = {},
+  onUploadProgress
+) => {
+  const form = new FormData();
+  if (Array.isArray(files)) {
+    files.forEach((f) => form.append('files', f));
+  }
+  if (Array.isArray(documentTypes) && documentTypes.length) {
+    form.append('documentTypes', documentTypes.join(','));
+  }
+  if (Array.isArray(issue_dates) && issue_dates.length) {
+    form.append('issue_dates', issue_dates.join(','));
+  }
+  if (Array.isArray(expiry_dates) && expiry_dates.length) {
+    form.append('expiry_dates', expiry_dates.join(','));
+  }
+  return safeRequest(() =>
+    api.post(`/api/workers/${workerId}/documents/bulk`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress,
+    })
+  );
+};
+
 export const addSkill = async (workerId, skill) => {
   return safeRequest(() => api.post(`/api/workers/${workerId}/skills`, { skill_name: skill }));
 };

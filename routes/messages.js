@@ -6,6 +6,7 @@ const messageController = require('../controllers/messageController');
 
 const router = express.Router();
 
+router.get('/recipients', [auth], messageController.getMessageRecipients);
 router.get('/conversations', [auth], messageController.getConversations);
 
 router.get(

@@ -3,10 +3,30 @@
  * Uses base URL from ApiConfig; supports auth token and consistent error handling.
  */
 
-const defaultBaseURL =
-  typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_API_URL
-    ? process.env.EXPO_PUBLIC_API_URL
-    : 'http://localhost:3000';
+import { Platform } from 'react-native';
+import { getState, logout } from '../store/authStore.js';
+
+function resolveBaseURL() {
+  // Expo / React Native env
+  if (typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL;
+  }
+  // Vite web builds (guarded so Hermes/Metro never parses import.meta)
+  try {
+    // eslint-disable-next-line no-eval
+    const viteURL = eval("typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL");
+    if (viteURL) return viteURL;
+  } catch (_) {
+    // not a Vite environment – ignore
+  }
+  // Mobile builds (Android / iOS) → use deployed Railway backend
+  if (Platform.OS === 'android' || Platform.OS === 'ios') {
+    return 'https://athletic-heart-backend-production.up.railway.app';
+  }
+  return 'http://localhost:3000';
+}
+
+const defaultBaseURL = resolveBaseURL();
 
 export const ApiConfig = {
   baseURL: defaultBaseURL,
@@ -15,7 +35,6 @@ export const ApiConfig = {
 
 export function getAuthToken() {
   try {
-    const { getState } = require('../store/authStore.js');
     const state = getState();
     return state?.token ?? null;
   } catch {
@@ -65,7 +84,11 @@ export async function request(method, path, body = null, options = {}) {
     }
 
     if (!res.ok) {
-      const error = new Error(data?.error || data?.message || `Request failed: ${res.status}`);
+      if (res.status === 401) {
+        try { logout(); } catch (_) {}
+      }
+      const errorMsg = data?.error || data?.errors?.[0]?.msg || data?.message || `Request failed: ${res.status}`;
+      const error = new Error(errorMsg);
       error.status = res.status;
       error.response = data;
       return { data: null, error, status: res.status };

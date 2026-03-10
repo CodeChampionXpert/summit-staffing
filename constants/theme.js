@@ -38,12 +38,12 @@ export const Spacing = {
 
 export const Typography = {
   fontSize: {
-    xs: 12,
-    sm: 14,
-    base: 16,
-    lg: 18,
-    xl: 20,
-    xxl: 24,
+    xs: 13,
+    sm: 15,
+    base: 17,
+    lg: 19,
+    xl: 22,
+    xxl: 26,
   },
   fontWeight: {
     normal: '400',

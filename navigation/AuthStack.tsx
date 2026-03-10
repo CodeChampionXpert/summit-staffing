@@ -1,6 +1,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
+import { WelcomeScreen } from '../screens/auth/WelcomeScreen.js';
 import { LoginScreen } from '../screens/auth/LoginScreen.js';
 import { RegisterScreen } from '../screens/auth/RegisterScreen.js';
 import { ForgotPasswordScreen } from '../screens/auth/ForgotPasswordScreen.js';
@@ -15,6 +16,7 @@ const headerStyle = {
 };
 
 export type AuthStackParamList = {
+  Welcome: undefined;
   Login: undefined;
   Register: undefined;
   ForgotPassword: undefined;
@@ -26,6 +28,7 @@ const Stack = createNativeStackNavigator<AuthStackParamList>();
 export const AuthStack = () => {
   return (
     <Stack.Navigator screenOptions={headerStyle}>
+      <Stack.Screen name="Welcome" component={WelcomeScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Login" component={LoginScreen} options={{ title: 'Sign in', headerShown: true }} />
       <Stack.Screen name="Register" component={RegisterScreen} options={{ title: 'Sign up' }} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ title: 'Reset Password' }} />

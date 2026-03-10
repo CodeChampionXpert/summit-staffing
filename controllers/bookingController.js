@@ -88,24 +88,27 @@ const createBooking = async (req, res) => {
       service_type,
       start_time,
       end_time,
+      proposed_hourly_rate,
       location_address,
       location_lat,
       location_lng,
       special_instructions
     } = req.body;
 
-    const workerRes = await pool.query('SELECT id, user_id, hourly_rate FROM workers WHERE id = $1 LIMIT 1', [worker_id]);
+    const workerRes = await pool.query('SELECT id, user_id FROM workers WHERE id = $1 LIMIT 1', [worker_id]);
     if (workerRes.rowCount === 0) {
       return res.status(404).json({ ok: false, error: 'Worker not found' });
     }
 
     const worker = workerRes.rows[0];
+    const rate = Number(proposed_hourly_rate);
+    if (rate < 0) {
+      return res.status(400).json({ ok: false, error: 'Proposed hourly rate must be 0 or more' });
+    }
 
     const start = new Date(start_time);
     const end = new Date(end_time);
     const scheduledHours = hoursBetween(start, end);
-
-    const rate = Number(worker.hourly_rate || 0);
     const totalAmount = Number((rate * scheduledHours).toFixed(2));
     const commissionAmount = Number((totalAmount * 0.1).toFixed(2));
 
@@ -117,13 +120,14 @@ const createBooking = async (req, res) => {
         start_time,
         end_time,
         status,
+        hourly_rate,
         location_address,
         location_lat,
         location_lng,
         special_instructions,
         total_amount,
         commission_amount
-      ) VALUES ($1,$2,$3,$4,$5,'pending',$6,$7,$8,$9,$10,$11)
+      ) VALUES ($1,$2,$3,$4,$5,'pending',$6,$7,$8,$9,$10,$11,$12)
       RETURNING *`,
       [
         participant.id,
@@ -131,6 +135,7 @@ const createBooking = async (req, res) => {
         service_type,
         start,
         end,
+        rate,
         location_address || null,
         toNumberOrNull(location_lat),
         toNumberOrNull(location_lng),
@@ -543,7 +548,7 @@ const clockOut = async (req, res) => {
       await client.query('BEGIN');
 
       const bookingRes = await client.query(
-        `SELECT b.*, w.hourly_rate
+        `SELECT b.*, w.hourly_rate AS worker_hourly_rate
          FROM bookings b
          JOIN workers w ON w.id = b.worker_id
          WHERE b.id = $1 FOR UPDATE`,
@@ -603,7 +608,7 @@ const clockOut = async (req, res) => {
         [id, clockOutTime, Number(lat), Number(lng), actualHours]
       );
 
-      const rate = Number(booking.hourly_rate || 0);
+      const rate = Number(booking.hourly_rate ?? booking.worker_hourly_rate ?? 0);
       const totalAmount = Number((rate * actualHours).toFixed(2));
       const commissionAmount = Number((totalAmount * 0.1).toFixed(2));
 

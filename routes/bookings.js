@@ -17,6 +17,7 @@ router.post(
     body('service_type').isString().isLength({ min: 2, max: 100 }),
     body('start_time').isISO8601(),
     body('end_time').isISO8601(),
+    body('proposed_hourly_rate').isFloat({ min: 0 }).withMessage('Your budget (hourly rate) is required and must be 0 or more'),
     body('location_address').optional({ nullable: true }).isString(),
     body('location_lat').optional({ nullable: true }).isFloat({ min: -90, max: 90 }).toFloat(),
     body('location_lng').optional({ nullable: true }).isFloat({ min: -180, max: 180 }).toFloat(),

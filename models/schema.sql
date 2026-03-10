@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS postgis;
+-- CREATE EXTENSION IF NOT EXISTS postgis; -- Not available on Railway
 
 DO $$
 BEGIN
@@ -184,10 +184,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS workers_abn_uq_idx ON workers (abn);
 CREATE INDEX IF NOT EXISTS workers_user_id_idx ON workers (user_id);
 CREATE INDEX IF NOT EXISTS workers_location_idx ON workers (latitude, longitude);
 CREATE INDEX IF NOT EXISTS workers_hourly_rate_idx ON workers (hourly_rate);
-CREATE INDEX IF NOT EXISTS workers_location_geog_gist_idx
-  ON workers
-  USING GIST ((ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography))
-  WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
+-- PostGIS GIST index skipped (postgis not available on Railway)
+-- CREATE INDEX IF NOT EXISTS workers_location_geog_gist_idx
+--   ON workers
+--   USING GIST ((ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography))
+--   WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS worker_documents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -309,6 +310,18 @@ CREATE TABLE IF NOT EXISTS bookings (
 CREATE INDEX IF NOT EXISTS bookings_participant_id_idx ON bookings (participant_id);
 CREATE INDEX IF NOT EXISTS bookings_worker_id_idx ON bookings (worker_id);
 CREATE INDEX IF NOT EXISTS bookings_start_time_status_idx ON bookings (start_time, status);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'bookings' AND column_name = 'hourly_rate'
+  ) THEN
+    ALTER TABLE bookings ADD COLUMN hourly_rate NUMERIC(10,2);
+    ALTER TABLE bookings ADD CONSTRAINT bookings_hourly_rate_nonneg_chk
+      CHECK (hourly_rate IS NULL OR hourly_rate >= 0);
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS booking_timesheets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -437,5 +450,76 @@ CREATE TABLE IF NOT EXISTS messages (
 CREATE INDEX IF NOT EXISTS messages_conversation_created_at_idx ON messages (conversation_id, created_at);
 CREATE INDEX IF NOT EXISTS messages_sender_id_idx ON messages (sender_id);
 CREATE INDEX IF NOT EXISTS messages_receiver_id_idx ON messages (receiver_id);
+
+-- ============================================================
+-- Shifts & Shift Applications
+-- ============================================================
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'shift_status') THEN
+    CREATE TYPE shift_status AS ENUM ('open', 'filled', 'in_progress', 'completed', 'cancelled');
+  END IF;
+END$$;
+
+CREATE TABLE IF NOT EXISTS shifts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  participant_id UUID NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  service_type VARCHAR(100) NOT NULL,
+  start_time TIMESTAMPTZ NOT NULL,
+  end_time TIMESTAMPTZ NOT NULL,
+  hourly_rate NUMERIC(10,2) NOT NULL,
+  location TEXT,
+  required_skills TEXT[] DEFAULT '{}',
+  status shift_status NOT NULL DEFAULT 'open',
+  filled_by_worker_id UUID,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT shifts_participant_fk FOREIGN KEY (participant_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT shifts_filled_by_worker_fk FOREIGN KEY (filled_by_worker_id) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT shifts_time_range_chk CHECK (end_time > start_time),
+  CONSTRAINT shifts_hourly_rate_nonneg_chk CHECK (hourly_rate >= 0)
+);
+
+CREATE INDEX IF NOT EXISTS shifts_participant_id_idx ON shifts (participant_id);
+CREATE INDEX IF NOT EXISTS shifts_filled_by_worker_id_idx ON shifts (filled_by_worker_id);
+CREATE INDEX IF NOT EXISTS shifts_status_idx ON shifts (status);
+CREATE INDEX IF NOT EXISTS shifts_start_time_idx ON shifts (start_time);
+
+CREATE TABLE IF NOT EXISTS shift_applications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  shift_id UUID NOT NULL,
+  worker_id UUID NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'pending',
+  message TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT shift_applications_shift_fk FOREIGN KEY (shift_id) REFERENCES shifts(id) ON DELETE CASCADE,
+  CONSTRAINT shift_applications_worker_fk FOREIGN KEY (worker_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT shift_applications_unique_per_shift UNIQUE (shift_id, worker_id)
+);
+
+CREATE INDEX IF NOT EXISTS shift_applications_shift_id_idx ON shift_applications (shift_id);
+CREATE INDEX IF NOT EXISTS shift_applications_worker_id_idx ON shift_applications (worker_id);
+
+-- ============================================================
+-- Notifications
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  title TEXT NOT NULL,
+  body TEXT,
+  type VARCHAR(50),
+  data JSONB DEFAULT '{}',
+  read BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT notifications_user_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS notifications_user_read_idx ON notifications (user_id, read);
+CREATE INDEX IF NOT EXISTS notifications_user_created_idx ON notifications (user_id, created_at DESC);
 
 COMMIT;

@@ -23,6 +23,63 @@ const assertInConversation = (conversationId, userId) => {
   return parts.length === 2 && parts.includes(String(userId));
 };
 
+const getMessageRecipients = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const role = req.user.role;
+
+    if (role === 'worker') {
+      const workerRes = await pool.query('SELECT id FROM workers WHERE user_id = $1 LIMIT 1', [userId]);
+      if (workerRes.rowCount === 0) {
+        return res.status(200).json({ ok: true, recipients: [] });
+      }
+      const workerId = workerRes.rows[0].id;
+      const resRecipients = await pool.query(
+        `SELECT DISTINCT p.user_id AS id, COALESCE(p.first_name, 'Participant') AS first_name, u.email
+         FROM bookings b
+         JOIN participants p ON p.id = b.participant_id
+         JOIN users u ON u.id = p.user_id
+         WHERE b.worker_id = $1
+         ORDER BY first_name`,
+        [workerId]
+      );
+      const recipients = (resRecipients.rows || []).map((r) => ({
+        id: r.id,
+        first_name: r.first_name,
+        email: r.email,
+      }));
+      return res.status(200).json({ ok: true, recipients });
+    }
+
+    if (role === 'participant') {
+      const partRes = await pool.query('SELECT id FROM participants WHERE user_id = $1 LIMIT 1', [userId]);
+      if (partRes.rowCount === 0) {
+        return res.status(200).json({ ok: true, recipients: [] });
+      }
+      const participantId = partRes.rows[0].id;
+      const resRecipients = await pool.query(
+        `SELECT DISTINCT w.user_id AS id, COALESCE(w.first_name, 'Worker') AS first_name, u.email
+         FROM bookings b
+         JOIN workers w ON w.id = b.worker_id
+         JOIN users u ON u.id = w.user_id
+         WHERE b.participant_id = $1
+         ORDER BY first_name`,
+        [participantId]
+      );
+      const recipients = (resRecipients.rows || []).map((r) => ({
+        id: r.id,
+        first_name: r.first_name,
+        email: r.email,
+      }));
+      return res.status(200).json({ ok: true, recipients });
+    }
+
+    return res.status(200).json({ ok: true, recipients: [] });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: 'Failed to fetch recipients' });
+  }
+};
+
 const getConversations = async (req, res) => {
   try {
     const userId = req.user.userId;
@@ -196,6 +253,7 @@ const markAsRead = async (req, res) => {
 };
 
 module.exports = {
+  getMessageRecipients,
   getConversations,
   getMessages,
   sendMessage,

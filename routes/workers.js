@@ -49,6 +49,12 @@ router.get(
 
 router.get('/me', [auth, checkWorker], workerController.getMe);
 
+router.post(
+  '/setup',
+  [auth, checkWorker, body('first_name').optional({ nullable: true }).isString(), body('last_name').optional({ nullable: true }).isString(), body('abn').optional({ nullable: true }).isString()],
+  workerController.setupWorkerProfile
+);
+
 router.get('/:id', [param('id').isUUID()], workerController.getWorkerById);
 
 router.put(
@@ -84,6 +90,20 @@ router.post(
     body('expiry_date').optional({ nullable: true }).isISO8601().toDate()
   ],
   workerController.uploadDocument
+);
+
+router.post(
+  '/:id/documents/bulk',
+  [
+    auth,
+    checkWorker,
+    param('id').isUUID(),
+    upload.array('files', 10),
+    body('documentTypes')
+      .isString()
+      .withMessage('documentTypes required: comma-separated list, e.g. ndis_screening,wwcc,first_aid (one per file in order)')
+  ],
+  workerController.uploadDocumentsBulk
 );
 
 router.post(

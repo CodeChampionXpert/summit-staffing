@@ -68,7 +68,7 @@ const generateInvoice = async (req, res) => {
         t.clock_in_time, t.clock_out_time, t.actual_hours,
         p.ndis_number, p.plan_manager_name, p.plan_manager_email, p.user_id AS participant_user_id,
         u.email AS participant_email,
-        w.hourly_rate
+        w.hourly_rate AS worker_hourly_rate
       FROM bookings b
       JOIN booking_timesheets t ON t.booking_id = b.id
       JOIN participants p ON p.id = b.participant_id
@@ -115,7 +115,7 @@ const generateInvoice = async (req, res) => {
       const invoiceNumber = `INV-${datePrefix}-${pad4(next)}`;
 
       const hours = Number(booking.actual_hours || 0);
-      const rate = Number(booking.hourly_rate || 0);
+      const rate = Number(booking.hourly_rate ?? booking.worker_hourly_rate ?? 0);
       const subtotal = Number((hours * rate).toFixed(2));
       const gst = 0;
       const total = Number((subtotal + gst).toFixed(2));

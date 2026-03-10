@@ -162,6 +162,50 @@ const getWorkerById = async (req, res) => {
   }
 };
 
+const setupWorkerProfile = async (req, res) => {
+  try {
+    if (!req.user || !req.user.userId) {
+      return res.status(401).json({ ok: false, error: 'Unauthorized' });
+    }
+    const userId = req.user.userId;
+    const existing = await pool.query('SELECT id FROM workers WHERE user_id = $1 LIMIT 1', [userId]);
+    if (existing.rowCount > 0) {
+      return res.status(200).json({ ok: true, message: 'Worker profile already exists' });
+    }
+    const { first_name, last_name, abn } = req.body || {};
+    const userRow = await pool.query('SELECT email FROM users WHERE id = $1 LIMIT 1', [userId]);
+    const email = userRow.rows[0]?.email || '';
+    const namePart = (email && email.split('@')[0]) ? email.split('@')[0].replace(/[^a-zA-Z]/g, ' ') : 'Worker';
+    const firstName = (first_name && String(first_name).trim()) || namePart || 'Worker';
+    const lastName = (last_name && String(last_name).trim()) || 'User';
+    const abnVal = (abn && String(abn).replace(/\D/g, '').slice(0, 11)) || '00000000000';
+    const abnPadded = abnVal.padEnd(11, '0').slice(0, 11);
+    await pool.query(
+      'INSERT INTO workers (user_id, abn, first_name, last_name) VALUES ($1, $2, $3, $4)',
+      [userId, abnPadded, firstName, lastName]
+    );
+    const workerRes = await pool.query(
+      'SELECT w.*, u.email, u.role, u.email_verified FROM workers w JOIN users u ON u.id = w.user_id WHERE w.user_id = $1 LIMIT 1',
+      [userId]
+    );
+    const worker = workerRes.rows[0];
+    const [skillsRes, availabilityRes, documentsRes] = await Promise.all([
+      pool.query('SELECT id, skill_name, verified FROM worker_skills WHERE worker_id = $1 ORDER BY skill_name ASC', [worker.id]),
+      pool.query('SELECT id, day_of_week, start_time, end_time, is_available FROM worker_availability WHERE worker_id = $1 ORDER BY day_of_week ASC', [worker.id]),
+      pool.query('SELECT id, worker_id, document_type, file_url, issue_date, expiry_date, status, rejection_reason, created_at, updated_at FROM worker_documents WHERE worker_id = $1 ORDER BY created_at DESC', [worker.id])
+    ]);
+    return res.status(201).json({
+      ok: true,
+      worker,
+      skills: skillsRes.rows,
+      availability: availabilityRes.rows,
+      documents: documentsRes.rows
+    });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: 'Failed to set up worker profile' });
+  }
+};
+
 const getMe = async (req, res) => {
   try {
     if (!req.user || !req.user.userId) {
@@ -334,6 +378,68 @@ const uploadDocument = async (req, res) => {
     return res.status(201).json({ ok: true, document: insertRes.rows[0] });
   } catch (err) {
     return res.status(500).json({ ok: false, error: 'Failed to upload document' });
+  }
+};
+
+const VALID_DOCUMENT_TYPES = ['ndis_screening', 'wwcc', 'police_check', 'first_aid', 'insurance'];
+
+const uploadDocumentsBulk = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const files = req.files && Array.isArray(req.files) ? req.files : [];
+    const documentTypesRaw = req.body.documentTypes ? String(req.body.documentTypes).trim() : '';
+    const documentTypes = documentTypesRaw.split(',').map((s) => s.trim()).filter(Boolean);
+
+    if (files.length === 0) {
+      return res.status(400).json({ ok: false, error: 'At least one file is required' });
+    }
+    if (documentTypes.length !== files.length) {
+      return res.status(400).json({
+        ok: false,
+        error: `documentTypes must have one type per file (${files.length} types for ${files.length} files). Use comma-separated list, e.g. ndis_screening,wwcc,first_aid`
+      });
+    }
+
+    for (const dt of documentTypes) {
+      if (!VALID_DOCUMENT_TYPES.includes(dt)) {
+        return res.status(400).json({ ok: false, error: `Invalid documentType: ${dt}. Allowed: ${VALID_DOCUMENT_TYPES.join(', ')}` });
+      }
+    }
+
+    const workerRes = await pool.query('SELECT id, user_id FROM workers WHERE id = $1 LIMIT 1', [id]);
+    if (workerRes.rowCount === 0) {
+      return res.status(404).json({ ok: false, error: 'Worker not found' });
+    }
+    const worker = workerRes.rows[0];
+    if (!req.user || req.user.userId !== worker.user_id) {
+      return res.status(403).json({ ok: false, error: 'Forbidden' });
+    }
+
+    const issueDatesRaw = (req.body.issue_dates && String(req.body.issue_dates).trim()) || '';
+    const expiryDatesRaw = (req.body.expiry_dates && String(req.body.expiry_dates).trim()) || '';
+    const issueDates = issueDatesRaw ? issueDatesRaw.split(',').map((s) => s.trim()).filter(Boolean) : [];
+    const expiryDates = expiryDatesRaw ? expiryDatesRaw.split(',').map((s) => s.trim()).filter(Boolean) : [];
+
+    const inserted = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const documentType = documentTypes[i];
+      const folder = `documents/${worker.id}/${documentType}`;
+      const fileUrl = await uploadFile(file, folder);
+      const issueDate = issueDates[i] || null;
+      const expiryDate = expiryDates[i] || null;
+      const insertRes = await pool.query(
+        `INSERT INTO worker_documents (worker_id, document_type, file_url, issue_date, expiry_date, status)
+         VALUES ($1, $2, $3, $4, $5, 'pending')
+         RETURNING *`,
+        [worker.id, documentType, fileUrl, issueDate || null, expiryDate || null]
+      );
+      inserted.push(insertRes.rows[0]);
+    }
+
+    return res.status(201).json({ ok: true, documents: inserted, count: inserted.length });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: 'Failed to upload documents' });
   }
 };
 
@@ -562,9 +668,11 @@ module.exports = {
   getWorkers,
   getWorkerById,
   getMe,
+  setupWorkerProfile,
   updateWorker,
   uploadProfilePhoto,
   uploadDocument,
+  uploadDocumentsBulk,
   addSkill,
   removeSkill,
   updateAvailability,
