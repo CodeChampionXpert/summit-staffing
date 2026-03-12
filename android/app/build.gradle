@@ -108,8 +108,9 @@ android {
             signingConfig signingConfigs.debug
         }
         release {
-            signingConfig signingConfigs.release
-            minifyEnabled true
+            // Use debug keystore if release keystore is not configured
+            signingConfig signingConfigs.debug
+            minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
     }

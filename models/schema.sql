@@ -282,6 +282,23 @@ BEGIN
   END IF;
 END $$;
 
+-- Participant sign-up onboarding (client sign-up flow)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'participants' AND column_name = 'who_needs_support') THEN
+    ALTER TABLE participants ADD COLUMN who_needs_support TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'participants' AND column_name = 'when_start_looking') THEN
+    ALTER TABLE participants ADD COLUMN when_start_looking TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'participants' AND column_name = 'over_18') THEN
+    ALTER TABLE participants ADD COLUMN over_18 BOOLEAN;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'participants' AND column_name = 'funding_type') THEN
+    ALTER TABLE participants ADD COLUMN funding_type TEXT;
+  END IF;
+END $$;
+
 CREATE TABLE IF NOT EXISTS bookings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   participant_id UUID NOT NULL,

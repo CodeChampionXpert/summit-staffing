@@ -123,7 +123,7 @@ export function LoginScreen({ navigation }) {
           </Text>
         </Pressable>
 
-        <Pressable onPress={() => navigation.navigate('Register')} style={{ marginTop: Spacing.md, alignItems: 'center' }}>
+        <Pressable onPress={() => navigation.navigate('SignUpRoleChoice')} style={{ marginTop: Spacing.md, alignItems: 'center' }}>
           <Text style={{ color: Colors.text.secondary, fontSize: Typography.fontSize.sm }}>
             Don't have an account? <Text style={{ color: Colors.primary, fontWeight: Typography.fontWeight.semibold }}>Sign up</Text>
           </Text>

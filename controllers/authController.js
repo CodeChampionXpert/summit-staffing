@@ -60,10 +60,34 @@ const register = async (req, res) => {
       }
 
       if (role === 'participant') {
-        const { ndis_number, first_name, last_name, phone, address } = req.body;
+        const {
+          ndis_number,
+          first_name,
+          last_name,
+          phone,
+          address,
+          who_needs_support,
+          when_start_looking,
+          over_18,
+          funding_type,
+        } = req.body;
         await client.query(
-          'INSERT INTO participants (user_id, ndis_number, first_name, last_name, phone, address) VALUES ($1, $2, $3, $4, $5, $6)',
-          [user.id, ndis_number || null, first_name || null, last_name || null, phone || null, address || null]
+          `INSERT INTO participants (
+            user_id, ndis_number, first_name, last_name, phone, address,
+            who_needs_support, when_start_looking, over_18, funding_type
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+          [
+            user.id,
+            ndis_number || null,
+            first_name || null,
+            last_name || null,
+            phone || null,
+            address || null,
+            who_needs_support || null,
+            when_start_looking || null,
+            over_18 === undefined ? null : Boolean(over_18),
+            funding_type || null,
+          ]
         );
       }
 

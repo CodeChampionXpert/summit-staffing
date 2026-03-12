@@ -7,6 +7,7 @@ import { View, Text, ScrollView, Pressable, Alert, TextInput, Platform } from 'r
 import { api } from '../services/api.js';
 const DateTimePicker = Platform.OS !== 'web' ? require('@react-native-community/datetimepicker').default : null;
 import { Colors, Spacing, Typography, Radius, Shadows } from '../constants/theme.js';
+import { SERVICE_TYPES, getServiceTypeSuggestions } from '../constants/serviceTypes.js';
 
 const webInputStyle = {
   width: '100%',
@@ -66,6 +67,8 @@ export function WorkerDetailScreen({ route, navigation }) {
   const { worker } = route.params;
   const [booking, setBooking] = useState(false);
   const [serviceType, setServiceType] = useState('');
+  const [serviceTypeQuery, setServiceTypeQuery] = useState('');
+  const [showServiceSuggestions, setShowServiceSuggestions] = useState(false);
   const [bookingDate, setBookingDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() + 1);
@@ -158,6 +161,8 @@ export function WorkerDetailScreen({ route, navigation }) {
     fontSize: Typography.fontSize.base, color: Colors.text.primary, marginBottom: Spacing.sm,
   };
 
+  const serviceSuggestions = getServiceTypeSuggestions(serviceTypeQuery || serviceType);
+
   return (
     <ScrollView style={{ flex: 1, backgroundColor: Colors.background }} contentContainerStyle={{ padding: Spacing.lg, paddingBottom: Spacing.xxl }}>
       {/* Header */}
@@ -227,8 +232,42 @@ export function WorkerDetailScreen({ route, navigation }) {
             Create Booking
           </Text>
           <Text style={{ fontSize: Typography.fontSize.sm, color: Colors.text.secondary, marginBottom: 4 }}>Service Type</Text>
-          <TextInput style={inputStyle} placeholder="e.g. Personal Care, Respite" placeholderTextColor={Colors.text.muted}
-            value={serviceType} onChangeText={setServiceType} />
+          <TextInput
+            style={inputStyle}
+            placeholder="e.g. cleaning, personal care..."
+            placeholderTextColor={Colors.text.muted}
+            value={serviceTypeQuery || serviceType}
+            onChangeText={(text) => {
+              setServiceTypeQuery(text);
+              setShowServiceSuggestions(true);
+              if (SERVICE_TYPES.includes(text)) {
+                setServiceType(text);
+                setServiceTypeQuery('');
+                setShowServiceSuggestions(false);
+              } else {
+                setServiceType(text);
+              }
+            }}
+            onFocus={() => setShowServiceSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowServiceSuggestions(false), 200)}
+          />
+          {showServiceSuggestions && (serviceTypeQuery || !serviceType) && serviceSuggestions.length > 0 && (
+            <View style={{ backgroundColor: Colors.surfaceSecondary, borderRadius: Radius.md, marginBottom: Spacing.sm, maxHeight: 180 }}>
+              {serviceSuggestions.map((st) => (
+                <Pressable
+                  key={st}
+                  onPress={() => {
+                    setServiceType(st);
+                    setServiceTypeQuery('');
+                    setShowServiceSuggestions(false);
+                  }}
+                  style={{ padding: Spacing.sm, paddingHorizontal: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border }}
+                >
+                  <Text style={{ fontSize: Typography.fontSize.sm, color: st === serviceType ? Colors.primary : Colors.text.primary, fontWeight: st === serviceType ? Typography.fontWeight.bold : Typography.fontWeight.normal }}>{st}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
 
           <Text style={{ fontSize: Typography.fontSize.sm, color: Colors.text.secondary, marginBottom: 4 }}>Your budget (hourly rate $)</Text>
           <TextInput

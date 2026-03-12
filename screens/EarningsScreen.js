@@ -2,7 +2,7 @@
  * Summit Staffing – Earnings Screen
  * Shows total earnings/spending, stats, and completed booking history.
  */
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useLayoutEffect } from 'react';
 import { View, Text, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
 import { useAuthStore } from '../store/authStore.js';
 import { api } from '../services/api.js';
@@ -11,6 +11,10 @@ import { Colors, Spacing, Typography, Radius, Shadows } from '../constants/theme
 export function EarningsScreen({ navigation }) {
   const { user } = useAuthStore();
   const isWorker = user?.role === 'worker';
+
+  useLayoutEffect(() => {
+    navigation.setOptions({ title: isWorker ? 'My Earnings' : 'Spending' });
+  }, [navigation, isWorker]);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

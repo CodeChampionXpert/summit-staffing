@@ -1,6 +1,10 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import * as esbuild from 'esbuild';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Transform .js files that contain JSX (so Vite parses them correctly)
 function jsxInJs() {
@@ -24,8 +28,9 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      'react-native': 'react-native-web',
+      'react-native': path.resolve(__dirname, 'stubs/react-native-web-shim.js'),
       'react-native-web': 'react-native-web',
+      '@react-native-community/datetimepicker': path.resolve(__dirname, 'stubs/datetimepicker.web.js'),
     },
     extensions: ['.web.js', '.web.jsx', '.web.ts', '.web.tsx', '.js', '.jsx', '.ts', '.tsx', '.json'],
   },

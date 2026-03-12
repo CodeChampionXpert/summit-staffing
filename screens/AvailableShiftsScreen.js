@@ -11,17 +11,7 @@ import {
 import { useAuthStore } from '../store/authStore.js';
 import { api } from '../services/api.js';
 import { Colors, Spacing, Typography, Radius, Shadows } from '../constants/theme.js';
-
-const SERVICE_TYPES = [
-  'Personal Care',
-  'Domestic Assistance',
-  'Community Access',
-  'Respite Care',
-  'Assistance with Daily Life',
-  'Transport',
-  'Improved Health and Wellbeing',
-  'Improved Daily Living',
-];
+import { SERVICE_TYPES, getServiceTypeSuggestions } from '../constants/serviceTypes.js';
 
 const getServiceColor = (type) => {
   const map = {
@@ -128,9 +118,11 @@ function MiniCalendar({ selectedDate, onSelect }) {
 }
 
 // ── Create Shift Modal ────────────────────────────────────────────
-function CreateShiftModal({ visible, onClose, onCreated }) {
+function CreateShiftModal({ visible, onClose, onCreated, navigation }) {
   const [title, setTitle] = useState('');
   const [serviceType, setServiceType] = useState('');
+  const [serviceTypeQuery, setServiceTypeQuery] = useState('');
+  const [showServiceSuggestions, setShowServiceSuggestions] = useState(false);
   const [hourlyRate, setHourlyRate] = useState('');
   const [date, setDate] = useState('');
   const [startTime, setStartTime] = useState('');
@@ -138,12 +130,14 @@ function CreateShiftModal({ visible, onClose, onCreated }) {
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
   const [saving, setSaving] = useState(false);
-  const [showServicePicker, setShowServicePicker] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
 
+  const serviceSuggestions = getServiceTypeSuggestions(serviceTypeQuery || serviceType);
+
   const reset = () => {
-    setTitle(''); setServiceType(''); setHourlyRate(''); setDate('');
+    setTitle(''); setServiceType(''); setServiceTypeQuery(''); setHourlyRate(''); setDate('');
     setStartTime(''); setEndTime(''); setLocation(''); setDescription('');
+    setShowServiceSuggestions(false);
   };
 
   const handleCreate = async () => {
@@ -179,6 +173,7 @@ function CreateShiftModal({ visible, onClose, onCreated }) {
         reset();
         onClose();
         onCreated?.();
+        navigation?.goBack?.();
       }
     } catch (e) {
       Alert.alert('Error', 'Failed to create shift');
@@ -205,24 +200,44 @@ function CreateShiftModal({ visible, onClose, onCreated }) {
             <Text style={labelStyle}>Title *</Text>
             <TextInput style={inputStyle} value={title} onChangeText={setTitle} placeholder="e.g. Morning personal care support" placeholderTextColor={Colors.text.muted} />
 
-            {/* Service Type */}
+            {/* Service Type with suggestions */}
             <Text style={labelStyle}>Service Type *</Text>
-            <Pressable onPress={() => setShowServicePicker(!showServicePicker)} style={[inputStyle, { justifyContent: 'center' }]}>
-              <Text style={{ color: serviceType ? Colors.text.primary : Colors.text.muted }}>
-                {serviceType || 'Select service type...'}
-              </Text>
-            </Pressable>
-            {showServicePicker && (
-              <View style={{ backgroundColor: Colors.surfaceSecondary, borderRadius: Radius.md, marginBottom: Spacing.md }}>
-                {SERVICE_TYPES.map((st) => (
-                  <Pressable
-                    key={st}
-                    onPress={() => { setServiceType(st); setShowServicePicker(false); }}
-                    style={{ padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border }}
-                  >
-                    <Text style={{ color: st === serviceType ? Colors.primary : Colors.text.primary, fontWeight: st === serviceType ? Typography.fontWeight.bold : Typography.fontWeight.normal }}>{st}</Text>
-                  </Pressable>
-                ))}
+            <TextInput
+              style={inputStyle}
+              value={serviceTypeQuery || serviceType}
+              onChangeText={(text) => {
+                setServiceTypeQuery(text);
+                setShowServiceSuggestions(true);
+                if (SERVICE_TYPES.includes(text)) {
+                  setServiceType(text);
+                  setServiceTypeQuery('');
+                  setShowServiceSuggestions(false);
+                } else {
+                  setServiceType('');
+                }
+              }}
+              onFocus={() => setShowServiceSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowServiceSuggestions(false), 200)}
+              placeholder="e.g. cleaning, personal care..."
+              placeholderTextColor={Colors.text.muted}
+            />
+            {showServiceSuggestions && (serviceTypeQuery || !serviceType) && serviceSuggestions.length > 0 && (
+              <View style={{ backgroundColor: Colors.surfaceSecondary, borderRadius: Radius.md, marginBottom: Spacing.md, maxHeight: 200 }}>
+                <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+                  {serviceSuggestions.map((st) => (
+                    <Pressable
+                      key={st}
+                      onPress={() => {
+                        setServiceType(st);
+                        setServiceTypeQuery('');
+                        setShowServiceSuggestions(false);
+                      }}
+                      style={{ padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border }}
+                    >
+                      <Text style={{ color: st === serviceType ? Colors.primary : Colors.text.primary, fontWeight: st === serviceType ? Typography.fontWeight.bold : Typography.fontWeight.normal }}>{st}</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
               </View>
             )}
 
@@ -499,7 +514,8 @@ export function AvailableShiftsScreen({ navigation }) {
       <CreateShiftModal
         visible={showCreateModal}
         onClose={() => setShowCreateModal(false)}
-        onCreated={loadShifts}
+        onCreated={() => { loadShifts(); navigation.goBack(); }}
+        navigation={navigation}
       />
     </View>
   );

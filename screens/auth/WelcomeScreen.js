@@ -6,15 +6,18 @@ import React from 'react';
 import { View, Text, Pressable, ImageBackground, StatusBar, Dimensions } from 'react-native';
 import { Colors, Spacing, Typography, Radius } from '../../constants/theme.js';
 
-const { width, height } = Dimensions.get('window');
+// Import works in both Vite (web → URL string) and Metro (native → asset id)
+import welcomeImage from '../../welcome.jpg';
 
 export function WelcomeScreen({ navigation }) {
+  // Vite gives string URL; Metro gives number. ImageBackground accepts both.
+  const source = typeof welcomeImage === 'string' ? { uri: welcomeImage } : welcomeImage;
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
       <ImageBackground
-        source={require('../../welcome.jpg')}
+        source={source}
         style={{ flex: 1, width: '100%', height: '100%' }}
         resizeMode="cover"
       >
@@ -39,7 +42,7 @@ export function WelcomeScreen({ navigation }) {
             alignItems: 'center',
           }}>
             <Pressable
-              onPress={() => navigation.navigate('Register')}
+              onPress={() => navigation.navigate('SignUpRoleChoice')}
               style={({ pressed }) => ({
                 width: '100%', backgroundColor: Colors.primary, paddingVertical: 16,
                 borderRadius: Radius.md, alignItems: 'center', marginBottom: Spacing.md,

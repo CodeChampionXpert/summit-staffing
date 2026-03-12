@@ -1,7 +1,6 @@
 /**
- * Summit Staffing – Register screen (worker or participant)
+ * Summit Staffing – Register participant (after onboarding steps); sends onboarding + account data.
  */
-
 import React, { useState } from 'react';
 import {
   View,
@@ -13,6 +12,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useAuthStore } from '../../store/authStore.js';
+import { useParticipantSignUp } from '../../context/ParticipantSignUpContext.js';
 import { useLoading } from '../../hooks/useLoading.js';
 import { useErrorHandler } from '../../hooks/useErrorHandler.js';
 import { api } from '../../services/api.js';
@@ -38,17 +38,17 @@ const buttonStyle = (pressed) => ({
   opacity: pressed ? 0.9 : 1,
 });
 
-export function RegisterScreen({ navigation, route }) {
-  const initialRole = route.params?.role === 'worker' ? 'worker' : 'participant';
-  const [role, setRole] = useState(initialRole);
+const labelStyle = { fontSize: Typography.fontSize.sm, fontWeight: Typography.fontWeight.medium, color: Colors.text.primary, marginBottom: Spacing.sm };
+
+export function RegisterParticipantScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [abn, setAbn] = useState('');
   const [ndisNumber, setNdisNumber] = useState('');
   const [phone, setPhone] = useState('');
   const { setAuth } = useAuthStore();
+  const onboarding = useParticipantSignUp();
   const { isLoading, withLoading } = useLoading();
   const { error, handleError, clearError } = useErrorHandler();
 
@@ -57,19 +57,17 @@ export function RegisterScreen({ navigation, route }) {
     const body = {
       email: email.trim().toLowerCase(),
       password,
-      role,
+      role: 'participant',
       first_name: firstName.trim() || undefined,
       last_name: lastName.trim() || undefined,
       phone: phone.trim() || undefined,
+      who_needs_support: onboarding.whoNeedsSupport || undefined,
+      when_start_looking: onboarding.whenStartLooking || undefined,
+      over_18: onboarding.over18,
+      funding_type: onboarding.fundingType || undefined,
+      address: onboarding.location?.address || undefined,
     };
-    if (role === 'worker') {
-      body.abn = abn.replace(/\D/g, '').slice(0, 11);
-      if (body.abn?.length !== 11) {
-        handleError(new Error('ABN must be 11 digits'));
-        return;
-      }
-    }
-    if (role === 'participant' && ndisNumber.trim()) {
+    if (ndisNumber.trim()) {
       body.ndis_number = ndisNumber.replace(/\D/g, '').slice(0, 10);
     }
 
@@ -79,6 +77,7 @@ export function RegisterScreen({ navigation, route }) {
       return;
     }
     if (data?.ok && data?.token) {
+      onboarding.reset();
       setAuth(data.token, data.user);
     } else {
       handleError(new Error(data?.error || 'Registration failed'));
@@ -103,46 +102,8 @@ export function RegisterScreen({ navigation, route }) {
           Sign up
         </Text>
         <Text style={{ fontSize: Typography.fontSize.base, color: Colors.text.secondary, marginBottom: Spacing.lg }}>
-          Join as a worker or participant
+          Create your account
         </Text>
-
-        <Text style={{ fontSize: Typography.fontSize.sm, fontWeight: Typography.fontWeight.medium, color: Colors.text.primary, marginBottom: Spacing.sm }}>
-          I am a
-        </Text>
-        <View style={{ flexDirection: 'row', marginBottom: Spacing.lg, gap: Spacing.sm }}>
-          <Pressable
-            onPress={() => setRole('participant')}
-            style={{
-              flex: 1,
-              paddingVertical: Spacing.md,
-              borderRadius: Radius.md,
-              backgroundColor: role === 'participant' ? Colors.primary : Colors.surface,
-              borderWidth: 1,
-              borderColor: role === 'participant' ? Colors.primary : Colors.border,
-              alignItems: 'center',
-            }}
-          >
-            <Text style={{ color: role === 'participant' ? Colors.text.white : Colors.text.primary, fontWeight: Typography.fontWeight.semibold }}>
-              Participant
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setRole('worker')}
-            style={{
-              flex: 1,
-              paddingVertical: Spacing.md,
-              borderRadius: Radius.md,
-              backgroundColor: role === 'worker' ? Colors.primary : Colors.surface,
-              borderWidth: 1,
-              borderColor: role === 'worker' ? Colors.primary : Colors.border,
-              alignItems: 'center',
-            }}
-          >
-            <Text style={{ color: role === 'worker' ? Colors.text.white : Colors.text.primary, fontWeight: Typography.fontWeight.semibold }}>
-              Worker
-            </Text>
-          </Pressable>
-        </View>
 
         <Text style={labelStyle}>Email</Text>
         <TextInput style={[inputStyle, { marginBottom: Spacing.md }]} placeholder="you@example.com" placeholderTextColor={Colors.text.muted} value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" editable={!isLoading} />
@@ -156,18 +117,8 @@ export function RegisterScreen({ navigation, route }) {
         <Text style={labelStyle}>Last name</Text>
         <TextInput style={[inputStyle, { marginBottom: Spacing.md }]} placeholder="Last name" placeholderTextColor={Colors.text.muted} value={lastName} onChangeText={setLastName} editable={!isLoading} />
 
-        {role === 'worker' && (
-          <>
-            <Text style={labelStyle}>ABN (11 digits) *</Text>
-            <TextInput style={[inputStyle, { marginBottom: Spacing.md }]} placeholder="12345678901" placeholderTextColor={Colors.text.muted} value={abn} onChangeText={setAbn} keyboardType="number-pad" maxLength={11} editable={!isLoading} />
-          </>
-        )}
-        {role === 'participant' && (
-          <>
-            <Text style={labelStyle}>NDIS number (optional, 10 digits)</Text>
-            <TextInput style={[inputStyle, { marginBottom: Spacing.md }]} placeholder="4300123456" placeholderTextColor={Colors.text.muted} value={ndisNumber} onChangeText={setNdisNumber} keyboardType="number-pad" maxLength={10} editable={!isLoading} />
-          </>
-        )}
+        <Text style={labelStyle}>NDIS number (optional, 10 digits)</Text>
+        <TextInput style={[inputStyle, { marginBottom: Spacing.md }]} placeholder="4300123456" placeholderTextColor={Colors.text.muted} value={ndisNumber} onChangeText={setNdisNumber} keyboardType="number-pad" maxLength={10} editable={!isLoading} />
 
         <Text style={labelStyle}>Phone (optional)</Text>
         <TextInput style={[inputStyle, { marginBottom: Spacing.lg }]} placeholder="0400000000" placeholderTextColor={Colors.text.muted} value={phone} onChangeText={setPhone} keyboardType="phone-pad" editable={!isLoading} />
@@ -193,5 +144,3 @@ export function RegisterScreen({ navigation, route }) {
     </KeyboardAvoidingView>
   );
 }
-
-const labelStyle = { fontSize: Typography.fontSize.sm, fontWeight: Typography.fontWeight.medium, color: Colors.text.primary, marginBottom: Spacing.sm };

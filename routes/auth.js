@@ -26,7 +26,12 @@ router.post(
       .withMessage('ABN must be 11 characters'),
     body('first_name').optional({ nullable: true }).isString(),
     body('last_name').optional({ nullable: true }).isString(),
-    body('ndis_number').optional({ nullable: true }).isLength({ min: 10, max: 10 })
+    body('ndis_number').optional({ nullable: true }).isLength({ min: 10, max: 10 }),
+    body('who_needs_support').optional({ nullable: true }).isString(),
+    body('when_start_looking').optional({ nullable: true }).isString(),
+    body('over_18').optional({ nullable: true }).isBoolean(),
+    body('funding_type').optional({ nullable: true }).isString(),
+    body('address').optional({ nullable: true }).isString()
   ],
   (req, res, next) => {
     // Enforce required worker fields

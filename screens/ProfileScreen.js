@@ -181,37 +181,60 @@ export function ProfileScreen({ navigation }) {
         )}
       </View>
 
-      {/* Section 1: Communication & Profile */}
+      {/* Sections with 2 items each; Edit Profile + Payment Details together for participants */}
       <MenuSection>
         <MenuItem label="Notifications" badge={unreadCount} onPress={() => navigation.navigate('Notifications')} />
         <MenuItem label="Inbox" onPress={() => navigation.navigate('Messages')} />
+      </MenuSection>
+
+      <MenuSection>
         <MenuItem label="Edit Profile" onPress={() => navigation.navigate('EditProfile')} />
-        <MenuItem label="Documents" onPress={() => navigation.navigate('Documents')} />
+        {isWorker ? (
+          <MenuItem label="Documents" onPress={() => navigation.navigate('Documents')} />
+        ) : (
+          <MenuItem label="Payment Details" onPress={() => navigation.navigate('Payments')} />
+        )}
       </MenuSection>
 
-      {/* Section 2: Financial */}
-      <MenuSection>
-        <MenuItem label="Payment Details" onPress={() => navigation.navigate('Payments')} />
-        <MenuItem label="My Earnings" onPress={() => navigation.navigate('Earnings')} />
-      </MenuSection>
+      {isWorker && (
+        <MenuSection>
+          <MenuItem label="Payment Details" onPress={() => navigation.navigate('Payments')} />
+          <MenuItem label="My Earnings" onPress={() => navigation.navigate('Earnings')} />
+        </MenuSection>
+      )}
 
-      {/* Section 3: Learning & Support */}
       <MenuSection>
-        <MenuItem label="My Training" onPress={() => navigation.navigate('Training')} />
+        {isWorker && (
+          <MenuItem label="My Training" onPress={() => navigation.navigate('Training')} />
+        )}
         <MenuItem label="Help & Support" onPress={() => navigation.navigate('Help')} />
       </MenuSection>
 
-      {/* Section 4: Manage & Admin */}
-      <MenuSection>
-        {isWorker && (
+      {isWorker && (
+        <MenuSection>
           <MenuItem label="Manage Worker Profile" onPress={() => navigation.navigate('WorkerManage')} />
-        )}
-        <MenuItem label="Invoices" onPress={() => navigation.navigate('Invoices')} />
-        <MenuItem label="Terms & Conditions" onPress={() => navigation.navigate('Terms')} />
-        {isAdmin && (
+          <MenuItem label="Invoices" onPress={() => navigation.navigate('Invoices')} />
+        </MenuSection>
+      )}
+      {!isWorker && (
+        <MenuSection>
+          <MenuItem label="Invoices" onPress={() => navigation.navigate('Invoices')} />
+          <MenuItem label="Terms & Conditions" onPress={() => navigation.navigate('Terms')} />
+        </MenuSection>
+      )}
+      {isWorker && (
+        <MenuSection>
+          <MenuItem label="Terms & Conditions" onPress={() => navigation.navigate('Terms')} />
+          {isAdmin && (
+            <MenuItem label="Admin Dashboard" onPress={() => navigation.navigate('AdminDashboard')} />
+          )}
+        </MenuSection>
+      )}
+      {isAdmin && !isWorker && (
+        <MenuSection>
           <MenuItem label="Admin Dashboard" onPress={() => navigation.navigate('AdminDashboard')} />
-        )}
-      </MenuSection>
+        </MenuSection>
+      )}
 
       {/* Sign Out */}
       <Pressable
