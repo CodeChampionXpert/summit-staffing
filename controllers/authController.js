@@ -118,6 +118,25 @@ const register = async (req, res) => {
       client.release();
     }
   } catch (err) {
+    // Map common DB constraints to actionable API errors.
+    if (err && err.code === '23505') {
+      if (String(err.constraint || '').includes('users_email')) {
+        return res.status(409).json({ ok: false, error: 'Email already registered' });
+      }
+      if (String(err.constraint || '').includes('participants_ndis_number')) {
+        return res.status(409).json({ ok: false, error: 'NDIS number is already registered' });
+      }
+      if (String(err.constraint || '').includes('workers_abn')) {
+        return res.status(409).json({ ok: false, error: 'ABN is already registered' });
+      }
+      return res.status(409).json({ ok: false, error: 'Duplicate value already exists' });
+    }
+
+    // Column missing usually means schema migration not applied on hosted DB.
+    if (err && err.code === '42703') {
+      return res.status(500).json({ ok: false, error: 'Database schema is out of date. Please run latest migrations.' });
+    }
+
     return res.status(500).json({ ok: false, error: 'Registration failed' });
   }
 };
