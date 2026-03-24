@@ -28,6 +28,21 @@ const allowedOrigins = [
   'http://localhost:19006'
 ];
 
+function isLocalhostOrigin(origin = '') {
+  return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
+}
+
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin) return callback(null, true);
+    if (isLocalhostOrigin(origin)) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+};
+
 const app = express();
 
 // Trust proxy - needed for Railway/reverse proxy environments
@@ -40,17 +55,7 @@ app.use(morgan('dev'));
 app.use(helmet());
 
 // 3) cors
-app.use(
-  cors({
-    origin(origin, callback) {
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
-      return callback(new Error('Not allowed by CORS'));
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE']
-  })
-);
+app.use(cors(corsOptions));
 
 // 4) Stripe webhook raw body preservation
 app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), paymentController.handleWebhook);
@@ -102,7 +107,7 @@ app.use('/api/shifts', shiftRoutes);
 app.use('/api/notifications', notificationRoutes);
 
 // Explicit preflight handler for CORS
-app.options('*', cors());
+app.options('*', cors(corsOptions));
 
 // 404 handler
 app.use((req, res) => {
