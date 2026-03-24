@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createStackNavigator } from '@react-navigation/stack';
 import { useAuthStore } from '../store/authStore.js';
 import { AuthStack } from './AuthStack';
 import { MainTabs } from './MainTabs';
@@ -26,7 +26,7 @@ import { TrainingScreen } from '../screens/TrainingScreen.js';
 import { EditProfileScreen } from '../screens/EditProfileScreen.js';
 import { Colors } from '../constants/theme.js';
 
-const Stack = createNativeStackNavigator();
+const Stack = createStackNavigator();
 
 export function AppNavigator() {
   const { isAuthenticated } = useAuthStore();

@@ -5,15 +5,17 @@
 
 import React, { useEffect } from 'react';
 import { View, Text, ScrollView } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { ToastProvider } from './components/Toast.js';
 import { AppNavigator } from './navigation/AppNavigator';
 import { Colors } from './constants/theme.js';
 import { rehydrateAuth } from './store/authStore.js';
 
 const navTheme = {
-  dark: false,
+  ...DefaultTheme,
+  dark: DefaultTheme.dark,
   colors: {
+    ...DefaultTheme.colors,
     primary: Colors.primary,
     background: Colors.background,
     card: Colors.surface,
@@ -21,6 +23,8 @@ const navTheme = {
     border: Colors.border,
     notification: Colors.status.error,
   },
+  // Keep default fonts so header components can read theme.fonts.bold safely.
+  fonts: DefaultTheme.fonts,
 };
 
 const appWrapperStyle = { flex: 1, backgroundColor: Colors.background };
