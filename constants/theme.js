@@ -53,7 +53,7 @@ export const ColorsDark = {
 };
 
 /** @deprecated Use useTheme() or ColorsLight/ColorsDark – kept for backward compat */
-export const Colors = ColorsDark;
+export const Colors = ColorsLight;
 
 export const Spacing = {
   xs: 4,

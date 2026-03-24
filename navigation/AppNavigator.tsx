@@ -63,7 +63,7 @@ export function AppNavigator() {
       <Stack.Screen name="Terms" component={TermsScreen} options={{ title: 'Terms & Conditions' }} />
       <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} options={{ title: 'Admin Panel' }} />
       <Stack.Screen name="Reviews" component={ReviewsScreen} options={{ title: 'Reviews' }} />
-      <Stack.Screen name="AvailableShifts" component={AvailableShiftsScreen} options={{ title: 'Available Shifts' }} />
+      <Stack.Screen name="AvailableShifts" component={AvailableShiftsScreen} options={{ title: 'Find Workers' }} />
       <Stack.Screen name="Help" component={HelpScreen} options={{ title: 'Help & Support' }} />
       <Stack.Screen name="Documents" component={DocumentsScreen} options={{ title: 'Documents' }} />
       <Stack.Screen name="Earnings" component={EarningsScreen} options={{ title: 'Earnings' }} />

@@ -2,6 +2,7 @@ import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 
 import { Colors } from '../constants/theme.js';
+import { WelcomeScreen } from '../screens/auth/WelcomeScreen.js';
 import { LoginScreen } from '../screens/auth/LoginScreen.js';
 import { SignUpRoleChoice } from '../screens/auth/SignUpRoleChoice.js';
 import { RegisterScreen } from '../screens/auth/RegisterScreen.js';

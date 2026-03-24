@@ -101,7 +101,7 @@ export function DashboardScreen({ navigation }) {
             padding: Spacing.lg, paddingVertical: Spacing.xl, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.8 : 1,
           })}
         >
-          <Text style={{ color: Colors.text.white, fontWeight: Typography.fontWeight.bold, fontSize: Typography.fontSize.base }}>Available Shifts</Text>
+          <Text style={{ color: Colors.text.white, fontWeight: Typography.fontWeight.bold, fontSize: Typography.fontSize.base }}>Find Workers</Text>
         </Pressable>
         <Pressable
           onPress={() => navigation.navigate('Bookings')}
@@ -142,8 +142,20 @@ export function DashboardScreen({ navigation }) {
         <Card>
           <Text style={{ color: Colors.text.secondary, textAlign: 'center' }}>No bookings yet</Text>
           {!isWorker && (
-            <Pressable onPress={() => navigation.navigate('Search')} style={{ marginTop: Spacing.md, alignItems: 'center' }}>
-              <Text style={{ color: Colors.primary, fontWeight: Typography.fontWeight.semibold }}>Find a worker →</Text>
+            <Pressable
+              onPress={() => navigation.navigate('Search')}
+              style={({ pressed }) => ({
+                marginTop: Spacing.md,
+                backgroundColor: Colors.primary,
+                borderRadius: Radius.md,
+                paddingVertical: Spacing.md,
+                alignItems: 'center',
+                opacity: pressed ? 0.85 : 1,
+              })}
+            >
+              <Text style={{ color: Colors.text.white, fontWeight: Typography.fontWeight.bold }}>
+                FIND A WORKER
+              </Text>
             </Pressable>
           )}
         </Card>

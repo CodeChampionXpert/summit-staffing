@@ -503,7 +503,7 @@ export function AvailableShiftsScreen({ navigation }) {
           <View style={{ marginBottom: Spacing.md }}>
             <Text style={{ fontSize: Typography.fontSize.sm, color: Colors.text.secondary }}>
               {isParticipant
-                ? 'Your posted shifts are listed below. Tap + to create a new one.'
+                ? 'Your workers are listed below. Tap + to create a new one.'
                 : 'Browse available shifts and apply for the ones that match your skills.'}
             </Text>
           </View>
@@ -514,7 +514,7 @@ export function AvailableShiftsScreen({ navigation }) {
           ) : (
             <View style={{ padding: Spacing.xl, alignItems: 'center' }}>
               <Text style={{ fontSize: Typography.fontSize.lg, fontWeight: Typography.fontWeight.semibold, color: Colors.text.primary }}>
-                {isParticipant ? 'No shifts posted yet' : 'No available shifts'}
+                {isParticipant ? 'No Workers available yet' : 'No available workers'}
               </Text>
               <Text style={{ fontSize: Typography.fontSize.sm, color: Colors.text.secondary, marginTop: Spacing.xs, textAlign: 'center' }}>
                 {isParticipant ? 'Post a shift to find support workers.' : 'Check back later for new opportunities.'}
