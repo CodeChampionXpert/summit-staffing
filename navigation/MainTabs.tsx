@@ -6,7 +6,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text, View, Pressable, Modal, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { DashboardScreen } from '../screens/DashboardScreen.js';
-import { SearchWorkersScreen } from '../screens/SearchWorkersScreen.js';
+import { AvailableShiftsScreen } from '../screens/AvailableShiftsScreen.js';
 import { BookingsScreen } from '../screens/BookingsScreen.js';
 import { MessagesScreen } from '../screens/MessagesScreen.js';
 import { ProfileScreen } from '../screens/ProfileScreen.js';
@@ -213,7 +213,7 @@ export function MainTabs() {
       })}
     >
       <Tab.Screen name="Home" component={DashboardScreen} options={{ title: 'Summit Staffing' }} />
-      {!isWorker && <Tab.Screen name="Search" component={SearchWorkersScreen} options={{ title: 'Find Workers' }} />}
+      {!isWorker && <Tab.Screen name="Search" component={AvailableShiftsScreen} options={{ title: 'Add Shift' }} />}
       <Tab.Screen name="Bookings" component={BookingsScreen} options={{ title: 'Bookings' }} />
       <Tab.Screen name="Messages" component={MessagesScreen} options={{ title: 'Messages' }} />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profile' }} />

@@ -48,11 +48,13 @@ const sendPasswordResetEmail = async (email, resetToken) => {
 };
 
 const sendVerificationEmail = async (email, verificationToken) => {
-  const appUrl = process.env.APP_URL || 'http://localhost:3000';
-  const verifyUrl = `${appUrl.replace(/\/$/, '')}/verify-email?token=${encodeURIComponent(verificationToken)}`;
-
   const subject = 'Verify your email';
-  const html = `<p>Welcome to Summit Staffing.</p><p>Please verify your email using this link:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`;
+  const html = `
+    <p>Welcome to Summit Staffing.</p>
+    <p>Your email verification OTP is:</p>
+    <p style="font-size: 24px; font-weight: 700; letter-spacing: 4px;">${verificationToken}</p>
+    <p>Enter this OTP in the app to complete registration.</p>
+  `;
 
   return sendEmail(email, subject, html);
 };

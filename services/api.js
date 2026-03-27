@@ -58,7 +58,7 @@ export function getHeaders(customHeaders = {}) {
  * Does not throw; parse response and surface errors for callers.
  */
 export async function request(method, path, body = null, options = {}) {
-  const url = path.startsWith('http') ? path : `${ApiConfig.baseURL.replace(/\/$/, '')}${path}`;;
+  const url = path.startsWith('http') ? path : `${ApiConfig.baseURL.replace(/\/$/, '')}${path}`;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), ApiConfig.timeout);
 

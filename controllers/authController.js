@@ -11,9 +11,15 @@ const {
 
 const SALT_ROUNDS = 12;
 const TOKEN_BYTES = 32;
+const OTP_LENGTH = 6;
 
 const sha256 = (value) => {
   return crypto.createHash('sha256').update(value).digest('hex');
+};
+
+const generateOtp = () => {
+  // Numeric 6-digit OTP (000000-999999), zero-padded.
+  return String(Math.floor(Math.random() * 1000000)).padStart(OTP_LENGTH, '0');
 };
 
 const respondValidation = (req, res) => {
@@ -91,7 +97,7 @@ const register = async (req, res) => {
         );
       }
 
-      const verificationToken = crypto.randomBytes(TOKEN_BYTES).toString('hex');
+      const verificationToken = generateOtp();
       const verificationTokenHash = sha256(verificationToken);
       const verificationExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
@@ -108,9 +114,12 @@ const register = async (req, res) => {
       } catch (emailErr) {
         // Email failure should not block registration
       }
-
-      const token = generateToken({ userId: user.id, role: user.role, email: user.email }, '24h');
-      return res.status(201).json({ ok: true, token, user });
+      return res.status(201).json({
+        ok: true,
+        pending_verification: true,
+        email: user.email,
+        message: 'Registration successful. Please verify OTP sent to your email.'
+      });
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;
@@ -118,6 +127,10 @@ const register = async (req, res) => {
       client.release();
     }
   } catch (err) {
+    // Log the real DB error server-side for debugging.
+    // eslint-disable-next-line no-console
+    console.error('[auth.register] error:', err);
+
     // Map common DB constraints to actionable API errors.
     if (err && err.code === '23505') {
       if (String(err.constraint || '').includes('users_email')) {
@@ -132,12 +145,35 @@ const register = async (req, res) => {
       return res.status(409).json({ ok: false, error: 'Duplicate value already exists' });
     }
 
+    // Check constraint violations (e.g. ABN digits format)
+    if (err && err.code === '23514') {
+      const c = String(err.constraint || '');
+      if (c.includes('workers_abn_digits_chk')) {
+        return res.status(400).json({ ok: false, error: 'ABN must be exactly 11 digits' });
+      }
+      if (c.includes('users_email_format_chk')) {
+        return res.status(400).json({ ok: false, error: 'Invalid email format' });
+      }
+      return res.status(400).json({ ok: false, error: 'Invalid registration data' });
+    }
+
+    // Not-null violations (missing required columns)
+    if (err && err.code === '23502') {
+      return res.status(400).json({ ok: false, error: 'Required fields are missing' });
+    }
+
     // Column missing usually means schema migration not applied on hosted DB.
     if (err && err.code === '42703') {
       return res.status(500).json({ ok: false, error: 'Database schema is out of date. Please run latest migrations.' });
     }
 
-    return res.status(500).json({ ok: false, error: 'Registration failed' });
+    return res.status(500).json({
+      ok: false,
+      error: 'Registration failed',
+      code: err?.code,
+      // Return message only to make debugging possible; remove later if you want.
+      details: err?.message ? String(err.message) : undefined,
+    });
   }
 };
 
@@ -279,7 +315,17 @@ const verifyEmail = async (req, res) => {
     await pool.query('UPDATE users SET email_verified = TRUE, updated_at = now() WHERE id = $1', [row.user_id]);
     await pool.query('DELETE FROM email_verification_tokens WHERE token_hash = $1', [tokenHash]);
 
-    return res.status(200).json({ ok: true, message: 'Email verified' });
+    const userRes = await pool.query(
+      'SELECT id, email, role, email_verified FROM users WHERE id = $1 LIMIT 1',
+      [row.user_id]
+    );
+    if (userRes.rowCount === 0) {
+      return res.status(404).json({ ok: false, error: 'User not found' });
+    }
+
+    const user = userRes.rows[0];
+    const token = generateToken({ userId: user.id, role: user.role, email: user.email }, '24h');
+    return res.status(200).json({ ok: true, message: 'Email verified', token, user });
   } catch (err) {
     return res.status(500).json({ ok: false, error: 'Verify email failed' });
   }

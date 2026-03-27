@@ -1,0 +1,4 @@
+D:/summit-staffing/android/app/.cxx/RelWithDebInfo/2t36l1x3/x86/CMakeFiles/_CMakeLTOTest-CXX/bin/CMakeFiles/foo.dir
+D:/summit-staffing/android/app/.cxx/RelWithDebInfo/2t36l1x3/x86/CMakeFiles/_CMakeLTOTest-CXX/bin/CMakeFiles/boo.dir
+D:/summit-staffing/android/app/.cxx/RelWithDebInfo/2t36l1x3/x86/CMakeFiles/_CMakeLTOTest-CXX/bin/CMakeFiles/edit_cache.dir
+D:/summit-staffing/android/app/.cxx/RelWithDebInfo/2t36l1x3/x86/CMakeFiles/_CMakeLTOTest-CXX/bin/CMakeFiles/rebuild_cache.dir

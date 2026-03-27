@@ -4,6 +4,7 @@
 
 import React, { useState } from 'react';
 import { View, Text, TextInput, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
+import { useAuthStore } from '../../store/authStore.js';
 import { useLoading } from '../../hooks/useLoading.js';
 import { useErrorHandler } from '../../hooks/useErrorHandler.js';
 import { api } from '../../services/api.js';
@@ -34,6 +35,7 @@ export function VerificationScreen({ route, navigation }) {
   const email = route?.params?.email ?? '';
   const [token, setToken] = useState('');
   const [verified, setVerified] = useState(false);
+  const { setAuth } = useAuthStore();
   const { isLoading, withLoading } = useLoading();
   const { error, handleError, clearError } = useErrorHandler();
 
@@ -46,8 +48,13 @@ export function VerificationScreen({ route, navigation }) {
     }
     if (data?.ok) {
       setVerified(true);
-      showSuccess('Email verified. You can sign in.');
-      setTimeout(() => navigation.navigate('Login'), 1500);
+      if (data?.token && data?.user) {
+        showSuccess('Email verified. Signing you in...');
+        setAuth(data.token, data.user);
+      } else {
+        showSuccess('Email verified. You can sign in.');
+        setTimeout(() => navigation.navigate('Login'), 1500);
+      }
     } else {
       handleError(new Error(data?.error || 'Verification failed'));
     }
@@ -68,7 +75,7 @@ export function VerificationScreen({ route, navigation }) {
           Verify your email
         </Text>
         <Text style={{ fontSize: Typography.fontSize.base, color: Colors.text.secondary, marginBottom: Spacing.xl }}>
-          {email ? `We sent a verification link to ${email}. Enter the code from the email below.` : "Enter the verification code from your email."}
+          {email ? `We sent an OTP to ${email}. Enter the code below.` : "Enter the verification OTP from your email."}
         </Text>
 
         {verified ? (
@@ -82,11 +89,13 @@ export function VerificationScreen({ route, navigation }) {
             </Text>
             <TextInput
               style={[inputStyle, { marginBottom: Spacing.lg }]}
-              placeholder="Paste code from email"
+              placeholder="Enter 6-digit OTP"
               placeholderTextColor={Colors.text.muted}
               value={token}
               onChangeText={setToken}
               autoCapitalize="none"
+              keyboardType="number-pad"
+              maxLength={6}
               editable={!isLoading}
             />
             {error ? (

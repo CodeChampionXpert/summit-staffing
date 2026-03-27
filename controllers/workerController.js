@@ -381,7 +381,7 @@ const uploadDocument = async (req, res) => {
   }
 };
 
-const VALID_DOCUMENT_TYPES = ['ndis_screening', 'wwcc', 'police_check', 'first_aid', 'insurance'];
+const VALID_DOCUMENT_TYPES = ['id_card', 'driving_license', 'ndis_screening', 'wwcc', 'police_check', 'first_aid', 'insurance'];
 
 const uploadDocumentsBulk = async (req, res) => {
   try {
@@ -658,7 +658,14 @@ const verifyABN = async (req, res) => {
   try {
     if (respondValidation(req, res)) return;
     const { abn } = req.body;
-    return res.status(200).json({ ok: true, valid: validateABN(abn) });
+    const normalizedAbn = String(abn || '').replace(/\D/g, '').slice(0, 11);
+    const valid = validateABN(normalizedAbn);
+    const existing = await pool.query('SELECT id FROM workers WHERE abn = $1 LIMIT 1', [normalizedAbn]);
+    return res.status(200).json({
+      ok: true,
+      valid,
+      exists: existing.rowCount > 0
+    });
   } catch (err) {
     return res.status(500).json({ ok: false, error: 'Failed to verify ABN' });
   }

@@ -3,7 +3,7 @@
  * Workers browse and apply for open shifts.
  * Participants view their posted shifts and create new ones.
  */
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, createElement } from 'react';
 import {
   View, Text, FlatList, Pressable, RefreshControl, Alert, Modal,
   TextInput, ScrollView, ActivityIndicator, Platform,
@@ -12,6 +12,31 @@ import { useAuthStore } from '../store/authStore.js';
 import { api } from '../services/api.js';
 import { Colors, Spacing, Typography, Radius, Shadows } from '../constants/theme.js';
 import { SERVICE_TYPES } from '../constants/serviceTypes.js';
+
+const DateTimePicker = Platform.OS !== 'web' ? require('@react-native-community/datetimepicker').default : null;
+
+const webInputStyle = {
+  width: '100%',
+  boxSizing: 'border-box',
+  backgroundColor: Colors.surfaceSecondary,
+  borderRadius: Radius.md,
+  borderWidth: 1,
+  borderColor: Colors.border,
+  paddingVertical: Spacing.sm,
+  paddingHorizontal: Spacing.md,
+  fontSize: Typography.fontSize.base,
+  color: Colors.text.primary,
+  marginBottom: Spacing.sm,
+};
+
+function WebTimeInput({ value, onChange }) {
+  return createElement('input', {
+    type: 'time',
+    value: value || '',
+    onChange: (e) => onChange(e.target.value),
+    style: webInputStyle,
+  });
+}
 
 const SERVICE_ICONS = {
   // 'Personal Care': '🧴',
@@ -159,13 +184,29 @@ function ServiceTypeCard({ type, selected, onPress }) {
 
 // ── Create Shift Modal ────────────────────────────────────────────────────────
 function CreateShiftModal({ visible, onClose, onCreated }) {
+  const isWeb = Platform.OS === 'web';
   const [title, setTitle] = useState('');
   const [serviceType, setServiceType] = useState('');
   const [showServicePicker, setShowServicePicker] = useState(false);
   const [hourlyRate, setHourlyRate] = useState('');
   const [date, setDate] = useState('');
-  const [startTime, setStartTime] = useState('');
-  const [endTime, setEndTime] = useState('');
+  const [startTimeDate, setStartTimeDate] = useState(() => {
+    const d = new Date();
+    d.setHours(9, 0, 0, 0);
+    return d;
+  });
+  const [endTimeDate, setEndTimeDate] = useState(() => {
+    const d = new Date();
+    d.setHours(10, 0, 0, 0);
+    return d;
+  });
+  const [webStartTimeText, setWebStartTimeText] = useState('09:00');
+  const [webEndTimeText, setWebEndTimeText] = useState('10:00');
+  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
+  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+  const [shiftHours, setShiftHours] = useState('1');
+  const [workersNeeded, setWorkersNeeded] = useState('1');
+  const [bookingMode, setBookingMode] = useState('individual');
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
   const [saving, setSaving] = useState(false);
@@ -173,17 +214,89 @@ function CreateShiftModal({ visible, onClose, onCreated }) {
 
   const reset = () => {
     setTitle(''); setServiceType(''); setHourlyRate(''); setDate('');
-    setStartTime(''); setEndTime(''); setLocation(''); setDescription('');
+    setStartTimeDate(() => {
+      const d = new Date();
+      d.setHours(9, 0, 0, 0);
+      return d;
+    });
+    setEndTimeDate(() => {
+      const d = new Date();
+      d.setHours(10, 0, 0, 0);
+      return d;
+    });
+    setWebStartTimeText('09:00');
+    setWebEndTimeText('10:00');
+    setShowStartTimePicker(false);
+    setShowEndTimePicker(false);
+    setShiftHours('1');
+    setWorkersNeeded('1');
+    setBookingMode('individual');
+    setLocation(''); setDescription('');
     setShowServicePicker(false); setShowCalendar(false);
   };
 
   const handleCreate = async () => {
-    if (!title || !serviceType || !hourlyRate || !date || !startTime || !endTime || !location) {
+    if (!title || !serviceType || !hourlyRate || !date || !location || !shiftHours || !workersNeeded) {
       Alert.alert('Missing Fields', 'Please fill in all required fields.');
       return;
     }
-    const start_time = `${date}T${startTime}:00`;
-    const end_time = `${date}T${endTime}:00`;
+
+    const [year, month, day] = date.split('-').map(Number);
+    let startHour;
+    let startMinute;
+    let endHour;
+    let endMinute;
+
+    if (isWeb) {
+      [startHour, startMinute] = webStartTimeText.split(':').map(Number);
+      [endHour, endMinute] = webEndTimeText.split(':').map(Number);
+    } else {
+      startHour = startTimeDate.getHours();
+      startMinute = startTimeDate.getMinutes();
+      endHour = endTimeDate.getHours();
+      endMinute = endTimeDate.getMinutes();
+    }
+
+    if ([startHour, startMinute, endHour, endMinute].some((v) => Number.isNaN(v))) {
+      Alert.alert('Invalid Time', 'Please select valid start and end time.');
+      return;
+    }
+
+    const start = new Date(year, month - 1, day, startHour, startMinute, 0, 0);
+    const end = new Date(year, month - 1, day, endHour, endMinute, 0, 0);
+    const dayStart = new Date(year, month - 1, day, 9, 0, 0, 0);
+    const dayEnd = new Date(year, month - 1, day, 17, 0, 0, 0);
+    const hours = Number(shiftHours);
+    const workerCount = Number(workersNeeded);
+
+    if (Number.isNaN(hours) || hours <= 0 || hours > 8) {
+      Alert.alert('Invalid Hours', 'Shift hours must be between 1 and 8.');
+      return;
+    }
+
+    if (!Number.isInteger(workerCount) || workerCount < 1) {
+      Alert.alert('Invalid Workers', 'Workers count must be at least 1.');
+      return;
+    }
+
+    if (start < dayStart || end > dayEnd) {
+      Alert.alert('Invalid Time', 'Shift time must be between 9:00 AM and 5:00 PM.');
+      return;
+    }
+
+    const durationHours = (end - start) / (1000 * 60 * 60);
+    if (durationHours <= 0) {
+      Alert.alert('Invalid Time', 'Start time must be before end time.');
+      return;
+    }
+
+    if (Math.abs(durationHours - hours) > 0.001) {
+      Alert.alert('Invalid Duration', 'Start/End time must match selected shift hours.');
+      return;
+    }
+
+    const start_time = start.toISOString();
+    const end_time = end.toISOString();
     if (new Date(end_time) <= new Date(start_time)) {
       Alert.alert('Invalid Time', 'End time must be after start time.');
       return;
@@ -198,6 +311,11 @@ function CreateShiftModal({ visible, onClose, onCreated }) {
         end_time,
         location,
         description,
+        required_skills: [
+          `workers_needed:${workerCount}`,
+          `booking_mode:${workerCount > 1 ? bookingMode : 'single'}`,
+          `shift_hours:${hours}`,
+        ],
       });
       if (error) {
         Alert.alert('Error', error.message || 'Failed to create shift');
@@ -222,7 +340,7 @@ function CreateShiftModal({ visible, onClose, onCreated }) {
             {/* Header */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.lg }}>
               <Text style={{ fontSize: Typography.fontSize.xl, fontWeight: Typography.fontWeight.bold, color: Colors.text.primary }}>
-                Post a New Shift
+                Add Shift
               </Text>
               <Pressable onPress={() => { reset(); onClose(); }}>
                 <Text style={{ fontSize: 24, color: Colors.text.muted }}>✕</Text>
@@ -235,8 +353,6 @@ function CreateShiftModal({ visible, onClose, onCreated }) {
               style={inputStyle}
               value={title}
               onChangeText={setTitle}
-              placeholder="e.g. Morning personal care support"
-              placeholderTextColor={Colors.text.muted}
             />
 
             {/* ── Service Type Picker ── */}
@@ -253,7 +369,7 @@ function CreateShiftModal({ visible, onClose, onCreated }) {
               <Text style={{ color: serviceType ? Colors.text.primary : Colors.text.muted, fontSize: Typography.fontSize.base }}>
                 {serviceType
                   ? ` ${serviceType}`
-                  : 'Select a service type...'}
+                  : 'Select a service type'}
               </Text>
               <Text style={{ color: Colors.text.muted, fontSize: 12 }}>
                 {showServicePicker ? '▲' : '▼'}
@@ -293,9 +409,7 @@ function CreateShiftModal({ visible, onClose, onCreated }) {
               style={inputStyle}
               value={hourlyRate}
               onChangeText={setHourlyRate}
-              placeholder="e.g. 55.00"
               keyboardType="numeric"
-              placeholderTextColor={Colors.text.muted}
             />
 
             {/* Date */}
@@ -305,7 +419,7 @@ function CreateShiftModal({ visible, onClose, onCreated }) {
               style={[inputStyle, { justifyContent: 'center' }]}
             >
               <Text style={{ color: date ? Colors.text.primary : Colors.text.muted }}>
-                {date || 'Select a date...'}
+                {date || 'Select a date'}
               </Text>
             </Pressable>
             {showCalendar && (
@@ -318,14 +432,145 @@ function CreateShiftModal({ visible, onClose, onCreated }) {
             {/* Start / End Time */}
             <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
               <View style={{ flex: 1 }}>
-                <Text style={labelStyle}>Start Time * (HH:MM)</Text>
-                <TextInput style={inputStyle} value={startTime} onChangeText={setStartTime} placeholder="09:00" placeholderTextColor={Colors.text.muted} />
+                <Text style={labelStyle}>Start Time *</Text>
+                {isWeb ? (
+                  <WebTimeInput value={webStartTimeText} onChange={setWebStartTimeText} />
+                ) : (
+                  <>
+                    <Pressable
+                      onPress={() => setShowStartTimePicker(true)}
+                      style={[inputStyle, { justifyContent: 'center' }]}
+                    >
+                      <Text style={{ color: Colors.text.primary }}>
+                        {startTimeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                    </Pressable>
+                    {showStartTimePicker && DateTimePicker && (
+                      <DateTimePicker
+                        value={startTimeDate}
+                        mode="time"
+                        display={Platform.OS === 'android' ? 'spinner' : 'default'}
+                        is24Hour={false}
+                        onChange={(e, selectedTime) => {
+                          setShowStartTimePicker(false);
+                          if (selectedTime) setStartTimeDate(selectedTime);
+                        }}
+                      />
+                    )}
+                  </>
+                )}
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={labelStyle}>End Time * (HH:MM)</Text>
-                <TextInput style={inputStyle} value={endTime} onChangeText={setEndTime} placeholder="13:00" placeholderTextColor={Colors.text.muted} />
+                <Text style={labelStyle}>End Time *</Text>
+                {isWeb ? (
+                  <WebTimeInput value={webEndTimeText} onChange={setWebEndTimeText} />
+                ) : (
+                  <>
+                    <Pressable
+                      onPress={() => setShowEndTimePicker(true)}
+                      style={[inputStyle, { justifyContent: 'center' }]}
+                    >
+                      <Text style={{ color: Colors.text.primary }}>
+                        {endTimeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                    </Pressable>
+                    {showEndTimePicker && DateTimePicker && (
+                      <DateTimePicker
+                        value={endTimeDate}
+                        mode="time"
+                        display={Platform.OS === 'android' ? 'spinner' : 'default'}
+                        is24Hour={false}
+                        onChange={(e, selectedTime) => {
+                          setShowEndTimePicker(false);
+                          if (selectedTime) setEndTimeDate(selectedTime);
+                        }}
+                      />
+                    )}
+                  </>
+                )}
               </View>
             </View>
+
+            <Text style={{ fontSize: Typography.fontSize.xs, color: Colors.text.muted, marginTop: -4, marginBottom: Spacing.sm }}>
+              Allowed range: 9:00 AM to 5:00 PM
+            </Text>
+
+            <Text style={labelStyle}>Shift Hours *</Text>
+            <TextInput
+              style={inputStyle}
+              value={shiftHours}
+              onChangeText={setShiftHours}
+              keyboardType="numeric"
+            />
+
+            <Text style={labelStyle}>How many workers you want? *</Text>
+            <TextInput
+              style={inputStyle}
+              value={workersNeeded}
+              onChangeText={setWorkersNeeded}
+              keyboardType="number-pad"
+            />
+
+            {Number(workersNeeded) > 1 && (
+              <>
+                <Text style={labelStyle}>Worker Mode</Text>
+                <View style={{ flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.sm }}>
+                  <Pressable
+                    onPress={() => setBookingMode('same')}
+                    style={{
+                      flex: 1,
+                      paddingVertical: Spacing.md,
+                      borderRadius: Radius.md,
+                      backgroundColor: bookingMode === 'same' ? Colors.primary : Colors.surfaceSecondary,
+                      borderWidth: 1,
+                      borderColor: bookingMode === 'same' ? Colors.primary : Colors.border,
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text style={{ color: bookingMode === 'same' ? Colors.text.white : Colors.text.primary, fontWeight: Typography.fontWeight.semibold }}>
+                      Both do same work
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setBookingMode('individual')}
+                    style={{
+                      flex: 1,
+                      paddingVertical: Spacing.md,
+                      borderRadius: Radius.md,
+                      backgroundColor: bookingMode === 'individual' ? Colors.primary : Colors.surfaceSecondary,
+                      borderWidth: 1,
+                      borderColor: bookingMode === 'individual' ? Colors.primary : Colors.border,
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text style={{ color: bookingMode === 'individual' ? Colors.text.white : Colors.text.primary, fontWeight: Typography.fontWeight.semibold }}>
+                      Both work as individual
+                    </Text>
+                  </Pressable>
+                </View>
+
+                {Array.from({ length: Math.min(Number(workersNeeded) || 0, 6) }).map((_, idx) => (
+                  <View
+                    key={`worker-slot-${idx + 1}`}
+                    style={{
+                      backgroundColor: Colors.surfaceSecondary,
+                      borderRadius: Radius.md,
+                      borderWidth: 1,
+                      borderColor: Colors.border,
+                      padding: Spacing.md,
+                      marginBottom: Spacing.sm,
+                    }}
+                  >
+                    <Text style={{ color: Colors.text.primary, fontWeight: Typography.fontWeight.semibold }}>
+                      Book shift for worker {idx + 1}
+                    </Text>
+                    <Text style={{ color: Colors.text.secondary, fontSize: Typography.fontSize.sm, marginTop: 2 }}>
+                      Worker information will appear after applications.
+                    </Text>
+                  </View>
+                ))}
+              </>
+            )}
 
             {/* Location */}
             <Text style={labelStyle}>Location *</Text>
@@ -333,8 +578,6 @@ function CreateShiftModal({ visible, onClose, onCreated }) {
               style={inputStyle}
               value={location}
               onChangeText={setLocation}
-              placeholder="e.g. 123 Main St, Melbourne VIC"
-              placeholderTextColor={Colors.text.muted}
             />
 
             {/* Description */}
@@ -344,8 +587,6 @@ function CreateShiftModal({ visible, onClose, onCreated }) {
               value={description}
               onChangeText={setDescription}
               multiline
-              placeholder="Any additional details..."
-              placeholderTextColor={Colors.text.muted}
             />
 
             {/* Submit */}
@@ -362,7 +603,7 @@ function CreateShiftModal({ visible, onClose, onCreated }) {
               })}
             >
               <Text style={{ color: Colors.text.white, fontWeight: Typography.fontWeight.bold, fontSize: Typography.fontSize.base }}>
-                {saving ? 'Posting...' : 'Post Shift'}
+                {saving ? 'Adding...' : 'Add Shift'}
               </Text>
             </Pressable>
           </ScrollView>
@@ -391,13 +632,23 @@ const inputStyle = {
 };
 
 // ── Shift Card ────────────────────────────────────────────────────────────────
-function ShiftCard({ shift, onApply, isWorker }) {
+function ShiftCard({ shift, onApply, onSelect, isWorker, isParticipant }) {
   const startDate = new Date(shift.start_time);
   const endDate = new Date(shift.end_time);
   const hours = ((endDate - startDate) / (1000 * 60 * 60)).toFixed(1);
 
   return (
-    <View style={{ backgroundColor: Colors.surface, borderRadius: Radius.lg, padding: Spacing.lg, marginBottom: Spacing.sm, ...Shadows.md }}>
+    <Pressable
+      onPress={isParticipant ? () => onSelect?.(shift) : undefined}
+      style={({ pressed }) => ({
+        backgroundColor: Colors.surface,
+        borderRadius: Radius.lg,
+        padding: Spacing.lg,
+        marginBottom: Spacing.sm,
+        ...Shadows.md,
+        opacity: pressed && isParticipant ? 0.95 : 1,
+      })}
+    >
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm }}>
         <View style={{ backgroundColor: getServiceColor(shift.service_type), paddingHorizontal: Spacing.sm, paddingVertical: 3, borderRadius: Radius.full }}>
           <Text style={{ color: Colors.text.white, fontSize: Typography.fontSize.xs, fontWeight: Typography.fontWeight.bold }}>
@@ -440,7 +691,7 @@ function ShiftCard({ shift, onApply, isWorker }) {
           <Text style={{ color: Colors.text.white, fontWeight: Typography.fontWeight.semibold }}>Apply for Shift</Text>
         </Pressable>
       )}
-    </View>
+    </Pressable>
   );
 }
 
@@ -454,6 +705,12 @@ export function AvailableShiftsScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [shiftBookingVisible, setShiftBookingVisible] = useState(false);
+  const [shiftBookingLoading, setShiftBookingLoading] = useState(false);
+  const [shiftBooking, setShiftBooking] = useState(null);
+  const [shiftApplications, setShiftApplications] = useState([]);
+  const [workersWanted, setWorkersWanted] = useState(1);
+  const [bookingMode, setBookingMode] = useState('individual'); // informational UI for now
 
   const loadShifts = useCallback(async () => {
     try {
@@ -491,6 +748,57 @@ export function AvailableShiftsScreen({ navigation }) {
     else { Alert.alert('Applied!', 'Your application has been submitted.'); loadShifts(); }
   };
 
+  const openShiftBooking = useCallback(async (shift) => {
+    if (!isParticipant) return;
+    setShiftBookingLoading(true);
+    setShiftBooking(shift);
+    setShiftApplications([]);
+    setWorkersWanted(1);
+    setBookingMode('individual');
+    setShiftBookingVisible(true);
+    try {
+      const { data } = await api.get(`/api/shifts/${shift.id}`);
+      if (data?.ok) {
+        setShiftApplications(data.applications || []);
+      } else {
+        Alert.alert('Error', data?.error || 'Failed to load applications');
+      }
+    } catch (e) {
+      Alert.alert('Error', 'Failed to load applications');
+    } finally {
+      setShiftBookingLoading(false);
+    }
+  }, [isParticipant]);
+
+  const acceptMany = async (applicationIds) => {
+    if (!shiftBooking?.id) return;
+    setShiftBookingLoading(true);
+    try {
+      const { error } = await api.post(`/api/shifts/${shiftBooking.id}/accept-many`, {
+        application_ids: applicationIds,
+        booking_mode: bookingMode,
+      });
+      if (error) {
+        Alert.alert('Error', error.message || 'Failed to book');
+        return;
+      }
+
+      const acceptedWorkers = shiftApplications
+        .filter((a) => applicationIds.includes(a.id))
+        .map((a, idx) => {
+          const name = `${a.worker_first_name || ''} ${a.worker_last_name || ''}`.trim() || a.worker_email || `Worker ${idx + 1}`;
+          return `${idx + 1}. ${name}`;
+        })
+        .join('\n');
+
+      Alert.alert('Shift Booked', `Bookings created for:\n${acceptedWorkers || 'Selected workers'}`);
+      setShiftBookingVisible(false);
+      loadShifts();
+    } finally {
+      setShiftBookingLoading(false);
+    }
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
       <FlatList
@@ -498,12 +806,20 @@ export function AvailableShiftsScreen({ navigation }) {
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: Spacing.md, paddingBottom: Spacing.xxl }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
-        renderItem={({ item }) => <ShiftCard shift={item} onApply={handleApply} isWorker={isWorker} />}
+        renderItem={({ item }) => (
+          <ShiftCard
+            shift={item}
+            onApply={handleApply}
+            onSelect={(s) => (isParticipant ? openShiftBooking(s) : undefined)}
+            isWorker={isWorker}
+            isParticipant={isParticipant}
+          />
+        )}
         ListHeaderComponent={
           <View style={{ marginBottom: Spacing.md }}>
             <Text style={{ fontSize: Typography.fontSize.sm, color: Colors.text.secondary }}>
               {isParticipant
-                ? 'Your workers are listed below. Tap + to create a new one.'
+                ? 'Your posted shifts are below. Tap + to add a shift, or tap a shift to book workers.'
                 : 'Browse available shifts and apply for the ones that match your skills.'}
             </Text>
           </View>
@@ -514,10 +830,10 @@ export function AvailableShiftsScreen({ navigation }) {
           ) : (
             <View style={{ padding: Spacing.xl, alignItems: 'center' }}>
               <Text style={{ fontSize: Typography.fontSize.lg, fontWeight: Typography.fontWeight.semibold, color: Colors.text.primary }}>
-                {isParticipant ? 'No Workers available yet' : 'No available workers'}
+                {isParticipant ? 'No shifts posted yet' : 'No available workers'}
               </Text>
               <Text style={{ fontSize: Typography.fontSize.sm, color: Colors.text.secondary, marginTop: Spacing.xs, textAlign: 'center' }}>
-                {isParticipant ? 'Post a shift to find support workers.' : 'Check back later for new opportunities.'}
+                {isParticipant ? 'Tap + to add a new shift.' : 'Check back later for new opportunities.'}
               </Text>
             </View>
           )
@@ -544,6 +860,176 @@ export function AvailableShiftsScreen({ navigation }) {
         onClose={() => setShowCreateModal(false)}
         onCreated={loadShifts}
       />
+
+      {/* Shift booking for participants (accept multiple worker applications) */}
+      <Modal
+        visible={shiftBookingVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShiftBookingVisible(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: Colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '92%' }}>
+            <ScrollView contentContainerStyle={{ padding: Spacing.lg, paddingBottom: Spacing.xxl }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.lg }}>
+                <Text style={{ fontSize: Typography.fontSize.xl, fontWeight: Typography.fontWeight.bold, color: Colors.text.primary }}>
+                  {shiftBooking?.title ? `Book workers for: ${shiftBooking.title}` : 'Book workers'}
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    setShiftBookingVisible(false);
+                    setShiftApplications([]);
+                  }}
+                >
+                  <Text style={{ fontSize: 24, color: Colors.text.muted }}>✕</Text>
+                </Pressable>
+              </View>
+
+              {shiftBookingLoading ? (
+                <ActivityIndicator size="large" color={Colors.primary} />
+              ) : shiftApplications.length === 0 ? (
+                <View style={{ padding: Spacing.xl, alignItems: 'center' }}>
+                  <Text style={{ fontSize: Typography.fontSize.lg, fontWeight: Typography.fontWeight.semibold, color: Colors.text.primary }}>
+                    No applications yet
+                  </Text>
+                  <Text style={{ fontSize: Typography.fontSize.sm, color: Colors.text.secondary, marginTop: Spacing.xs, textAlign: 'center' }}>
+                    Workers will apply to your shift. Then you can book them here.
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <Text style={labelStyle}>How many workers you want?</Text>
+                  <View style={{ flexDirection: 'row', gap: Spacing.sm, alignItems: 'center', marginBottom: Spacing.md }}>
+                    <Pressable
+                      disabled={workersWanted <= 1 || shiftBookingLoading}
+                      onPress={() => setWorkersWanted((n) => Math.max(1, n - 1))}
+                      style={({ pressed }) => ({
+                        width: 48,
+                        height: 48,
+                        borderRadius: 24,
+                        backgroundColor: workersWanted <= 1 ? Colors.border : Colors.surfaceSecondary,
+                        opacity: pressed || workersWanted <= 1 ? 0.7 : 1,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      })}
+                    >
+                      <Text style={{ fontSize: 24, color: Colors.text.primary }}>−</Text>
+                    </Pressable>
+
+                    <View style={{ flex: 1, paddingVertical: Spacing.sm }}>
+                      <Text style={{ fontSize: Typography.fontSize.base, color: Colors.text.primary, fontWeight: Typography.fontWeight.semibold, textAlign: 'center' }}>
+                        {workersWanted} worker{workersWanted === 1 ? '' : 's'} selected
+                      </Text>
+                      <Text style={{ fontSize: Typography.fontSize.sm, color: Colors.text.secondary, textAlign: 'center', marginTop: 2 }}>
+                        Max: {shiftApplications.length}
+                      </Text>
+                    </View>
+
+                    <Pressable
+                      disabled={workersWanted >= shiftApplications.length || shiftBookingLoading}
+                      onPress={() => setWorkersWanted((n) => Math.min(shiftApplications.length, n + 1))}
+                      style={({ pressed }) => ({
+                        width: 48,
+                        height: 48,
+                        borderRadius: 24,
+                        backgroundColor: workersWanted >= shiftApplications.length ? Colors.border : Colors.surfaceSecondary,
+                        opacity: pressed || workersWanted >= shiftApplications.length ? 0.7 : 1,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      })}
+                    >
+                      <Text style={{ fontSize: 24, color: Colors.text.primary }}>+</Text>
+                    </Pressable>
+                  </View>
+
+                  <Text style={labelStyle}>Option</Text>
+                  <View style={{ flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md }}>
+                    <Pressable
+                      onPress={() => setBookingMode('individual')}
+                      style={{
+                        flex: 1,
+                        paddingVertical: Spacing.md,
+                        borderRadius: Radius.md,
+                        backgroundColor: bookingMode === 'individual' ? Colors.primary : Colors.surfaceSecondary,
+                        borderWidth: 1,
+                        borderColor: bookingMode === 'individual' ? Colors.primary : Colors.border,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Text style={{ color: bookingMode === 'individual' ? Colors.text.white : Colors.text.primary, fontWeight: Typography.fontWeight.semibold }}>
+                        Both work as individual
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => setBookingMode('same')}
+                      style={{
+                        flex: 1,
+                        paddingVertical: Spacing.md,
+                        borderRadius: Radius.md,
+                        backgroundColor: bookingMode === 'same' ? Colors.primary : Colors.surfaceSecondary,
+                        borderWidth: 1,
+                        borderColor: bookingMode === 'same' ? Colors.primary : Colors.border,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Text style={{ color: bookingMode === 'same' ? Colors.text.white : Colors.text.primary, fontWeight: Typography.fontWeight.semibold }}>
+                        Both do same job
+                      </Text>
+                    </Pressable>
+                  </View>
+
+                  <Text style={labelStyle}>Book shift</Text>
+                  {shiftApplications.slice(0, Math.min(workersWanted, shiftApplications.length)).map((app, idx) => {
+                    const name = `${app.worker_first_name || ''} ${app.worker_last_name || ''}`.trim() || app.worker_email || `Worker ${idx + 1}`;
+                    return (
+                      <View
+                        key={app.id}
+                        style={{
+                          backgroundColor: Colors.surfaceSecondary,
+                          borderRadius: Radius.lg,
+                          padding: Spacing.lg,
+                          marginBottom: Spacing.md,
+                          borderWidth: 1,
+                          borderColor: Colors.border,
+                        }}
+                      >
+                        <Text style={{ fontSize: Typography.fontSize.base, fontWeight: Typography.fontWeight.bold, color: Colors.text.primary }}>
+                          Book shift for worker {idx + 1}
+                        </Text>
+                        <Text style={{ marginTop: 6, fontSize: Typography.fontSize.sm, color: Colors.text.secondary }}>
+                          {name}
+                        </Text>
+                        {app.worker_hourly_rate != null && (
+                          <Text style={{ marginTop: 2, fontSize: Typography.fontSize.sm, color: Colors.text.secondary }}>
+                            ${Number(app.worker_hourly_rate).toFixed(2)}/hr
+                          </Text>
+                        )}
+
+                        <Pressable
+                          disabled={shiftBookingLoading}
+                          onPress={() => acceptMany(shiftApplications.slice(0, Math.min(workersWanted, shiftApplications.length)).map((x) => x.id))}
+                          style={({ pressed }) => ({
+                            marginTop: Spacing.md,
+                            backgroundColor: Colors.primary,
+                            borderRadius: Radius.md,
+                            paddingVertical: Spacing.md,
+                            alignItems: 'center',
+                            opacity: pressed || shiftBookingLoading ? 0.8 : 1,
+                          })}
+                        >
+                          <Text style={{ color: Colors.text.white, fontWeight: Typography.fontWeight.semibold }}>
+                            Book shift for worker {idx + 1}
+                          </Text>
+                        </Pressable>
+                      </View>
+                    );
+                  })}
+                </>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

@@ -84,7 +84,7 @@ router.post(
     param('id').isUUID(),
     upload.single('file'),
     body('documentType')
-      .isIn(['ndis_screening', 'wwcc', 'police_check', 'first_aid', 'insurance'])
+      .isIn(['id_card', 'driving_license', 'ndis_screening', 'wwcc', 'police_check', 'first_aid', 'insurance'])
       .withMessage('Invalid documentType'),
     body('issue_date').optional({ nullable: true }).isISO8601().toDate(),
     body('expiry_date').optional({ nullable: true }).isISO8601().toDate()

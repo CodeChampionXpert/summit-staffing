@@ -82,8 +82,6 @@ export function LoginScreen({ navigation }) {
         </Text>
         <TextInput
           style={[inputStyle, { marginBottom: Spacing.md }]}
-          placeholder="you@example.com"
-          placeholderTextColor={Colors.text.muted}
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
@@ -97,8 +95,6 @@ export function LoginScreen({ navigation }) {
         </Text>
         <TextInput
           style={[inputStyle, { marginBottom: Spacing.lg }]}
-          placeholder="••••••••"
-          placeholderTextColor={Colors.text.muted}
           value={password}
           onChangeText={setPassword}
           secureTextEntry

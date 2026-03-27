@@ -10,18 +10,23 @@ import { api } from '../services/api.js';
 import { Colors, Spacing, Typography, Radius, Shadows } from '../constants/theme.js';
 
 // ── Menu Item Component ─────────────────────────────────────────
-const MenuItem = ({ label, badge, onPress }) => (
+const MenuItem = ({ label, badge, onPress, disabled = false, note }) => (
   <Pressable
-    onPress={onPress}
+    onPress={disabled ? undefined : onPress}
     style={({ pressed }) => ({
       flexDirection: 'row', alignItems: 'center', paddingVertical: 14,
       borderBottomWidth: 1, borderBottomColor: Colors.borderLight,
-      opacity: pressed ? 0.6 : 1,
+      opacity: disabled ? 0.45 : pressed ? 0.6 : 1,
     })}
   >
     <Text style={{ flex: 1, fontSize: Typography.fontSize.base, color: Colors.text.primary, fontWeight: Typography.fontWeight.medium }}>
       {label}
     </Text>
+    {note ? (
+      <Text style={{ color: Colors.text.muted, fontSize: Typography.fontSize.xs, marginRight: Spacing.sm }}>
+        {note}
+      </Text>
+    ) : null}
     {badge > 0 && (
       <View style={{
         backgroundColor: Colors.status.error, minWidth: 22, height: 22, borderRadius: 11,
@@ -124,6 +129,9 @@ export function ProfileScreen({ navigation }) {
   const firstName = profile?.first_name || '';
   const lastName = profile?.last_name || '';
   const fullName = firstName && lastName ? `${firstName} ${lastName}` : user?.email?.split('@')[0] || 'User';
+  const workerVerified = !isWorker || profile?.verification_status === 'verified';
+  const workerLocked = isWorker && !workerVerified;
+  const docsOnlyNote = workerLocked ? 'Upload docs first' : undefined;
 
   if (loading) {
     return (
@@ -181,10 +189,39 @@ export function ProfileScreen({ navigation }) {
         )}
       </View>
 
+      {workerLocked && (
+        <View style={{
+          backgroundColor: '#FFF8E1',
+          borderWidth: 1,
+          borderColor: '#FFE08A',
+          borderRadius: Radius.lg,
+          padding: Spacing.md,
+          marginBottom: Spacing.md,
+        }}>
+          <Text style={{ color: Colors.text.primary, fontWeight: Typography.fontWeight.semibold }}>
+            Verification pending: upload your required documents first.
+          </Text>
+          <Text style={{ color: Colors.text.secondary, marginTop: 4 }}>
+            Only Edit Profile and Documents are active right now.
+          </Text>
+        </View>
+      )}
+
       {/* Sections with 2 items each; Edit Profile + Payment Details together for participants */}
       <MenuSection>
-        <MenuItem label="Notifications" badge={unreadCount} onPress={() => navigation.navigate('Notifications')} />
-        <MenuItem label="Inbox" onPress={() => navigation.navigate('Messages')} />
+        <MenuItem
+          label="Notifications"
+          badge={unreadCount}
+          onPress={() => navigation.navigate('Notifications')}
+          disabled={workerLocked}
+          note={workerLocked ? docsOnlyNote : undefined}
+        />
+        <MenuItem
+          label="Inbox"
+          onPress={() => navigation.navigate('Messages')}
+          disabled={workerLocked}
+          note={workerLocked ? docsOnlyNote : undefined}
+        />
       </MenuSection>
 
       <MenuSection>
@@ -198,22 +235,52 @@ export function ProfileScreen({ navigation }) {
 
       {isWorker && (
         <MenuSection>
-          <MenuItem label="Payment Details" onPress={() => navigation.navigate('Payments')} />
-          <MenuItem label="My Earnings" onPress={() => navigation.navigate('Earnings')} />
+          <MenuItem
+            label="Payment Details"
+            onPress={() => navigation.navigate('Payments')}
+            disabled={workerLocked}
+            note={workerLocked ? docsOnlyNote : undefined}
+          />
+          <MenuItem
+            label="My Earnings"
+            onPress={() => navigation.navigate('Earnings')}
+            disabled={workerLocked}
+            note={workerLocked ? docsOnlyNote : undefined}
+          />
         </MenuSection>
       )}
 
       <MenuSection>
         {isWorker && (
-          <MenuItem label="My Training" onPress={() => navigation.navigate('Training')} />
+          <MenuItem
+            label="My Training"
+            onPress={() => navigation.navigate('Training')}
+            disabled={workerLocked}
+            note={workerLocked ? docsOnlyNote : undefined}
+          />
         )}
-        <MenuItem label="Help & Support" onPress={() => navigation.navigate('Help')} />
+        <MenuItem
+          label="Help & Support"
+          onPress={() => navigation.navigate('Help')}
+          disabled={workerLocked}
+          note={workerLocked ? docsOnlyNote : undefined}
+        />
       </MenuSection>
 
       {isWorker && (
         <MenuSection>
-          <MenuItem label="Manage Worker Profile" onPress={() => navigation.navigate('WorkerManage')} />
-          <MenuItem label="Invoices" onPress={() => navigation.navigate('Invoices')} />
+          <MenuItem
+            label="Manage Worker Profile"
+            onPress={() => navigation.navigate('WorkerManage')}
+            disabled={workerLocked}
+            note={workerLocked ? docsOnlyNote : undefined}
+          />
+          <MenuItem
+            label="Invoices"
+            onPress={() => navigation.navigate('Invoices')}
+            disabled={workerLocked}
+            note={workerLocked ? docsOnlyNote : undefined}
+          />
         </MenuSection>
       )}
       {!isWorker && (
@@ -224,7 +291,12 @@ export function ProfileScreen({ navigation }) {
       )}
       {isWorker && (
         <MenuSection>
-          <MenuItem label="Terms & Conditions" onPress={() => navigation.navigate('Terms')} />
+          <MenuItem
+            label="Terms & Conditions"
+            onPress={() => navigation.navigate('Terms')}
+            disabled={workerLocked}
+            note={workerLocked ? docsOnlyNote : undefined}
+          />
           {isAdmin && (
             <MenuItem label="Admin Dashboard" onPress={() => navigation.navigate('AdminDashboard')} />
           )}

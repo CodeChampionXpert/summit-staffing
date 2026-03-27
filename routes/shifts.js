@@ -14,6 +14,9 @@ router.get('/mine', auth, shiftController.getMyShifts);
 // Available shifts (any authenticated user)
 router.get('/', auth, shiftController.getAvailableShifts);
 
+// Accept multiple applications (participants only) - must be defined before GET /:id
+router.post('/:id/accept-many', auth, checkParticipant, shiftController.acceptManyApplications);
+
 // Single shift detail (must be after all other routes)
 router.get('/:id', auth, shiftController.getShiftById);
 

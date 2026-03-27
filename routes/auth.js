@@ -64,7 +64,11 @@ router.post(
   authController.resetPassword
 );
 
-router.post('/verify-email', [body('token').isString().isLength({ min: 10 }).withMessage('Verification token is required')], authController.verifyEmail);
+router.post(
+  '/verify-email',
+  [body('token').isString().isLength({ min: 6, max: 128 }).withMessage('Verification token is required')],
+  authController.verifyEmail
+);
 
 router.post('/refresh', auth, authController.refreshToken);
 

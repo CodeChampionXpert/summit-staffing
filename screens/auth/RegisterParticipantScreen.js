@@ -52,6 +52,15 @@ export function RegisterParticipantScreen({ navigation }) {
   const { isLoading, withLoading } = useLoading();
   const { error, handleError, clearError } = useErrorHandler();
 
+  const navigateToEmailVerification = (emailToUse) => {
+    const parent = navigation?.getParent?.();
+    if (parent?.navigate) {
+      parent.navigate('Verification', { email: emailToUse });
+      return;
+    }
+    navigation.navigate('Verification', { email: emailToUse });
+  };
+
   const onRegister = withLoading(async () => {
     clearError();
     const body = {
@@ -76,7 +85,10 @@ export function RegisterParticipantScreen({ navigation }) {
       handleError(err);
       return;
     }
-    if (data?.ok && data?.token) {
+    if (data?.ok && data?.pending_verification) {
+      onboarding.reset();
+      navigateToEmailVerification(data.email || email.trim().toLowerCase());
+    } else if (data?.ok && data?.token) {
       onboarding.reset();
       setAuth(data.token, data.user);
     } else {
@@ -106,22 +118,22 @@ export function RegisterParticipantScreen({ navigation }) {
         </Text>
 
         <Text style={labelStyle}>Email</Text>
-        <TextInput style={[inputStyle, { marginBottom: Spacing.md }]} placeholder="you@example.com" placeholderTextColor={Colors.text.muted} value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" editable={!isLoading} />
+        <TextInput style={[inputStyle, { marginBottom: Spacing.md }]} value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" editable={!isLoading} />
 
         <Text style={labelStyle}>Password (min 8 characters)</Text>
-        <TextInput style={[inputStyle, { marginBottom: Spacing.md }]} placeholder="••••••••" placeholderTextColor={Colors.text.muted} value={password} onChangeText={setPassword} secureTextEntry editable={!isLoading} />
+        <TextInput style={[inputStyle, { marginBottom: Spacing.md }]} value={password} onChangeText={setPassword} secureTextEntry editable={!isLoading} />
 
         <Text style={labelStyle}>First name</Text>
-        <TextInput style={[inputStyle, { marginBottom: Spacing.md }]} placeholder="First name" placeholderTextColor={Colors.text.muted} value={firstName} onChangeText={setFirstName} editable={!isLoading} />
+        <TextInput style={[inputStyle, { marginBottom: Spacing.md }]} value={firstName} onChangeText={setFirstName} editable={!isLoading} />
 
         <Text style={labelStyle}>Last name</Text>
-        <TextInput style={[inputStyle, { marginBottom: Spacing.md }]} placeholder="Last name" placeholderTextColor={Colors.text.muted} value={lastName} onChangeText={setLastName} editable={!isLoading} />
+        <TextInput style={[inputStyle, { marginBottom: Spacing.md }]} value={lastName} onChangeText={setLastName} editable={!isLoading} />
 
         <Text style={labelStyle}>NDIS number (optional, 10 digits)</Text>
-        <TextInput style={[inputStyle, { marginBottom: Spacing.md }]} placeholder="4300123456" placeholderTextColor={Colors.text.muted} value={ndisNumber} onChangeText={setNdisNumber} keyboardType="number-pad" maxLength={10} editable={!isLoading} />
+        <TextInput style={[inputStyle, { marginBottom: Spacing.md }]} value={ndisNumber} onChangeText={setNdisNumber} keyboardType="number-pad" maxLength={10} editable={!isLoading} />
 
         <Text style={labelStyle}>Phone (optional)</Text>
-        <TextInput style={[inputStyle, { marginBottom: Spacing.lg }]} placeholder="0400000000" placeholderTextColor={Colors.text.muted} value={phone} onChangeText={setPhone} keyboardType="phone-pad" editable={!isLoading} />
+        <TextInput style={[inputStyle, { marginBottom: Spacing.lg }]} value={phone} onChangeText={setPhone} keyboardType="phone-pad" editable={!isLoading} />
 
         {error ? (
           <Text style={{ color: Colors.status.error, fontSize: Typography.fontSize.sm, marginBottom: Spacing.md }}>

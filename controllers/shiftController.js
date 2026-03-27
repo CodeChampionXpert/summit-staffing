@@ -307,6 +307,120 @@ const acceptApplication = async (req, res) => {
   }
 };
 
+// ── POST /api/shifts/:id/accept-many ────────────────────────────────
+// Participants can accept multiple worker applications and create bookings for each.
+const acceptManyApplications = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+    const { application_ids } = req.body || {};
+
+    if (!Array.isArray(application_ids) || application_ids.length < 1) {
+      return res.status(400).json({ ok: false, error: 'application_ids is required and must be a non-empty array' });
+    }
+
+    // Verify shift ownership + state
+    const shiftRes = await pool.query('SELECT * FROM shifts WHERE id = $1', [id]);
+    if (shiftRes.rowCount === 0) {
+      return res.status(404).json({ ok: false, error: 'Shift not found' });
+    }
+    const shift = shiftRes.rows[0];
+
+    if (shift.participant_id !== userId) {
+      return res.status(403).json({ ok: false, error: 'Only the shift creator can accept applications' });
+    }
+
+    if (shift.status !== 'open') {
+      return res.status(400).json({ ok: false, error: 'Shift is no longer open' });
+    }
+
+    // Fetch selected applications (must belong to the shift)
+    const appsRes = await pool.query(
+      `SELECT sa.id, sa.worker_id, sa.shift_id, sa.message, sa.created_at,
+              COALESCE(w.first_name, '') AS worker_first_name,
+              COALESCE(w.last_name, '') AS worker_last_name
+       FROM shift_applications sa
+       JOIN users u ON u.id = sa.worker_id
+       LEFT JOIN workers w ON w.user_id = sa.worker_id
+       WHERE sa.shift_id = $1 AND sa.id = ANY($2)`,
+      [id, application_ids]
+    );
+
+    if (appsRes.rowCount !== application_ids.length) {
+      return res.status(400).json({ ok: false, error: 'Some application_ids are invalid for this shift' });
+    }
+
+    // Accept selected
+    await pool.query(`UPDATE shift_applications SET status = 'accepted' WHERE id = ANY($1)`, [application_ids]);
+    // Reject the rest for this shift
+    await pool.query(`UPDATE shift_applications SET status = 'rejected' WHERE shift_id = $1 AND id <> ALL($2)`, [id, application_ids]);
+
+    // Update shift status (filled_by_worker_id can store one; we pick the first selected)
+    const firstApp = appsRes.rows.find((a) => a.id === application_ids[0]) || appsRes.rows[0];
+    await pool.query(`UPDATE shifts SET status = 'filled', filled_by_worker_id = $1, updated_at = now() WHERE id = $2`, [
+      firstApp.worker_id,
+      id,
+    ]);
+
+    const hours = (new Date(shift.end_time) - new Date(shift.start_time)) / (1000 * 60 * 60);
+    const totalAmount = (hours * parseFloat(shift.hourly_rate)).toFixed(2);
+
+    // Resolve participant + create bookings for each accepted worker
+    const participantRes = await pool.query('SELECT id FROM participants WHERE user_id = $1', [shift.participant_id]);
+    const participantId = participantRes.rowCount > 0 ? participantRes.rows[0].id : null;
+
+    for (const app of appsRes.rows) {
+      const workerRes = await pool.query('SELECT id FROM workers WHERE user_id = $1 LIMIT 1', [app.worker_id]);
+      const workerId = workerRes.rowCount > 0 ? workerRes.rows[0].id : null;
+
+      if (participantId && workerId) {
+        await pool.query(
+          `INSERT INTO bookings (participant_id, worker_id, service_type, start_time, end_time, status, location_address, total_amount, hourly_rate)
+           VALUES ($1, $2, $3, $4, $5, 'confirmed', $6, $7, $8)`,
+          [participantId, workerId, shift.service_type, shift.start_time, shift.end_time, shift.location, totalAmount, shift.hourly_rate]
+        );
+      }
+
+      // Notify accepted worker
+      await createNotification(
+        app.worker_id,
+        'Application accepted! 🎉',
+        `Your application for "${shift.title}" has been accepted.`,
+        'shift_accepted',
+        { shift_id: id }
+      );
+
+      await sendPushNotification(
+        app.worker_id,
+        'Application accepted! 🎉',
+        `Your application for "${shift.title}" has been accepted.`,
+        { type: 'shift_accepted', shiftId: id }
+      );
+    }
+
+    // Notify rejected applicants
+    const rejectedApps = await pool.query(
+      `SELECT worker_id FROM shift_applications WHERE shift_id = $1 AND id <> ALL($2)`,
+      [id, application_ids]
+    );
+    const rejectedWorkerIds = [...new Set(rejectedApps.rows.map((r) => r.worker_id))];
+    for (const workerId of rejectedWorkerIds) {
+      await createNotification(
+        workerId,
+        'Application update',
+        `The shift "${shift.title}" has been filled.`,
+        'shift_rejected',
+        { shift_id: id }
+      );
+    }
+
+    return res.json({ ok: true, message: 'Applications accepted and bookings created', accepted_application_ids: application_ids });
+  } catch (err) {
+    console.error('acceptManyApplications error:', err);
+    return res.status(500).json({ ok: false, error: 'Failed to accept applications' });
+  }
+};
+
 // ── PUT /api/shifts/:id/cancel ───────────────────────────────────
 const cancelShift = async (req, res) => {
   try {
@@ -355,6 +469,7 @@ module.exports = {
   createShift,
   applyForShift,
   acceptApplication,
+  acceptManyApplications,
   cancelShift,
   createNotification,
 };

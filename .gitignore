@@ -1,4 +1,7 @@
 node_modules/
+# Leftover react-native init scaffolds (not part of the app)
+TempRN_*/
+
 .env
 .env.local
 *.log

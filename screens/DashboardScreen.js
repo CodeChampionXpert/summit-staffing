@@ -24,6 +24,7 @@ export function DashboardScreen({ navigation }) {
   const { user } = useAuthStore();
   const [stats, setStats] = useState({ upcoming: 0, completed: 0, pending: 0 });
   const [upcomingBookings, setUpcomingBookings] = useState([]);
+  const [firstName, setFirstName] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -31,7 +32,17 @@ export function DashboardScreen({ navigation }) {
 
   const loadData = useCallback(async () => {
     try {
-      const { data } = await api.get('/api/bookings?limit=5');
+      const profileEndpoint = isWorker ? '/api/workers/me' : '/api/participants/me';
+      const [bookingsRes, profileRes] = await Promise.all([
+        api.get('/api/bookings?limit=5'),
+        api.get(profileEndpoint),
+      ]);
+      const data = bookingsRes?.data;
+      const profileData = profileRes?.data;
+
+      const profile = isWorker ? profileData?.worker : profileData?.participant;
+      setFirstName(profile?.first_name || '');
+
       if (data?.ok && data?.bookings) {
         const bookings = data.bookings;
         setUpcomingBookings(bookings.filter(b => b.status === 'confirmed' || b.status === 'pending').slice(0, 3));
@@ -53,12 +64,7 @@ export function DashboardScreen({ navigation }) {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const greeting = () => {
-    const hr = new Date().getHours();
-    if (hr < 12) return 'Good morning';
-    if (hr < 18) return 'Good afternoon';
-    return 'Good evening';
-  };
+  const displayFirstName = firstName || user?.first_name || user?.firstName || user?.email?.split('@')[0] || 'User';
 
   return (
     <ScrollView
@@ -69,10 +75,10 @@ export function DashboardScreen({ navigation }) {
       {/* Greeting */}
       <Card style={{ marginBottom: Spacing.lg, backgroundColor: Colors.primary }}>
         <Text style={{ fontSize: Typography.fontSize.lg, color: Colors.text.white, fontWeight: Typography.fontWeight.medium }}>
-          {greeting()}
+          Welcome
         </Text>
         <Text style={{ fontSize: Typography.fontSize.xxl, color: Colors.text.white, fontWeight: Typography.fontWeight.bold, marginTop: Spacing.xs }}>
-          {user?.email?.split('@')[0] || 'User'}
+          {displayFirstName}
         </Text>
         <Text style={{ fontSize: Typography.fontSize.sm, color: 'rgba(255,255,255,0.8)', marginTop: Spacing.xs }}>
           {isWorker ? 'Support Worker' : 'Participant'}
@@ -101,7 +107,7 @@ export function DashboardScreen({ navigation }) {
             padding: Spacing.lg, paddingVertical: Spacing.xl, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.8 : 1,
           })}
         >
-          <Text style={{ color: Colors.text.white, fontWeight: Typography.fontWeight.bold, fontSize: Typography.fontSize.base }}>Find Workers</Text>
+          <Text style={{ color: Colors.text.white, fontWeight: Typography.fontWeight.bold, fontSize: Typography.fontSize.base }}>Add Shift</Text>
         </Pressable>
         <Pressable
           onPress={() => navigation.navigate('Bookings')}
@@ -143,7 +149,7 @@ export function DashboardScreen({ navigation }) {
           <Text style={{ color: Colors.text.secondary, textAlign: 'center' }}>No bookings yet</Text>
           {!isWorker && (
             <Pressable
-              onPress={() => navigation.navigate('Search')}
+              onPress={() => navigation.navigate('AvailableShifts')}
               style={({ pressed }) => ({
                 marginTop: Spacing.md,
                 backgroundColor: Colors.primary,
@@ -154,7 +160,7 @@ export function DashboardScreen({ navigation }) {
               })}
             >
               <Text style={{ color: Colors.text.white, fontWeight: Typography.fontWeight.bold }}>
-                FIND A WORKER
+                ADD SHIFT
               </Text>
             </Pressable>
           )}
